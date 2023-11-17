@@ -1,24 +1,6 @@
 # DreamGaussian
 
-This repository contains the official implementation for [DreamGaussian: Generative Gaussian Splatting for Efficient 3D Content Creation](https://arxiv.org/abs/2309.16653).
-
-### [Project Page](https://dreamgaussian.github.io) | [Arxiv](https://arxiv.org/abs/2309.16653)
-
-https://github.com/dreamgaussian/dreamgaussian/assets/25863658/db860801-7b9c-4b30-9eb9-87330175f5c8
-
-### News
-
-- 2023.10.21: add experimental support for [MVDream](https://github.com/bytedance/MVDream).
-
-### [Colab demo](https://github.com/camenduru/dreamgaussian-colab)
-
-- Image-to-3D: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1sLpYmmLS209-e5eHgcuqdryFRRO6ZhFS?usp=sharing)
-- Text-to-3D: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/camenduru/dreamgaussian-colab/blob/main/dreamgaussian_colab.ipynb)
-
-### [Gradio demo](https://huggingface.co/spaces/jiawei011/dreamgaussian)
-
-- Image-to-3D: <a href="https://huggingface.co/spaces/jiawei011/dreamgaussian"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Gradio%20Demo-Huggingface-orange"></a>
-- Run Gradio demo on Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1owXJthskHoVXBNvxUB0Bg0JP2Rc7QsTe?usp=sharing)
+This repository contains a super unofficial implementation for [DreamGaussian: Generative Gaussian Splatting for Efficient 3D Content Creation](https://arxiv.org/abs/2309.16653). And integrates controlnet into the pipeline.
 
 ## Install
 
@@ -38,11 +20,6 @@ pip install git+https://github.com/NVlabs/nvdiffrast/
 # kiuikit
 pip install git+https://github.com/ashawkey/kiuikit
 ```
-
-Tested on:
-
-- Ubuntu 22 with torch 1.12 & CUDA 11.6 on a V100.
-- Windows 10 with torch 2.1 & CUDA 12.1 on a 3070.
 
 ## Usage
 
@@ -153,13 +130,3 @@ This work is built on many amazing research works and open-source projects, than
 - [nvdiffrast](https://github.com/NVlabs/nvdiffrast)
 - [dearpygui](https://github.com/hoffstadt/DearPyGui)
 
-## Citation
-
-```
-@article{tang2023dreamgaussian,
-  title={DreamGaussian: Generative Gaussian Splatting for Efficient 3D Content Creation},
-  author={Tang, Jiaxiang and Ren, Jiawei and Zhou, Hang and Liu, Ziwei and Zeng, Gang},
-  journal={arXiv preprint arXiv:2309.16653},
-  year={2023}
-}
-```
