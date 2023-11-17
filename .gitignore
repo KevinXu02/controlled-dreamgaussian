@@ -18,3 +18,5 @@ logs
 videos
 images
 *.mp4
+
+simple-knn/build
