@@ -34,7 +34,6 @@ class StableDiffusionControlNet(nn.Module):
         device,
         fp16=True,
         vram_O=True,
-        hf_key=None,
         t_range=[0.02, 0.98],
     ):
         super().__init__()
@@ -52,8 +51,6 @@ class StableDiffusionControlNet(nn.Module):
         pipe = StableDiffusionControlNetPipeline(
             controlnet=controlnet,
             sd=sd,
-            tokenizer=CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32"),
-            text_model=CLIPTextModel.from_pretrained("openai/clip-vit-base-patch32"),
             device=self.device,
             torch_dtype=self.dtype,
         )
@@ -185,6 +182,7 @@ class StableDiffusionControlNet(nn.Module):
         # camera = torch.matmul(flip_yz.to(camera), camera)
         camera = camera[:, [0, 2, 1, 3]]  # to blender convention (flip y & z axis)
         camera[:, 1] *= -1
+        # TODO:Base on the camera to generate the openpose images
         camera = normalize_camera(camera).view(batch_size, 16)
 
         camera = camera.repeat(2, 1)
@@ -195,7 +193,7 @@ class StableDiffusionControlNet(nn.Module):
         with torch.no_grad():
             # add noise
             noise = torch.randn_like(latents)
-            latents_noisy = self.model.q_sample(latents, t, noise)
+            latents_noisy = self.scheduler.add_noise(latents, noise, t)
             # pred noise
             latent_model_input = torch.cat([latents_noisy] * 2)
             tt = torch.cat([t] * 2)
@@ -203,7 +201,9 @@ class StableDiffusionControlNet(nn.Module):
             # import kiui
             # kiui.lo(latent_model_input, t, context['context'], context['camera'])
 
-            noise_pred = self.model.apply_model(latent_model_input, tt, context)
+            noise_pred = self.unet(
+                latent_model_input, tt, encoder_hidden_states=context
+            ).sample
 
             # perform guidance (high scale from paper!)
             noise_pred_uncond, noise_pred_pos = noise_pred.chunk(2)
