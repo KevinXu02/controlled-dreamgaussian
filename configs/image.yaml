@@ -1,11 +1,11 @@
 ### Input
 # input rgba image path (default to None, can be load in GUI too)
-input: 
+input:
 # input text prompt (default to None, can be input in GUI too)
 prompt:
 # input mesh for stage 2 (auto-search from stage 1 output path if None)
 mesh:
-# estimated elevation angle for input image 
+# estimated elevation angle for input image
 elevation: 0
 # reference image resolution
 ref_size: 256
@@ -15,7 +15,7 @@ density_thresh: 1
 ### Output
 outdir: logs
 mesh_format: obj
-save_path: ???
+save_path: ./
 
 ### Training
 # guidance loss weights (0 to disable)
@@ -38,7 +38,6 @@ load:
 train_geo: False
 # prob to invert background color during training (0 = always black, 1 = always white)
 invert_bg_prob: 0.5
-
 
 ### GUI
 gui: False

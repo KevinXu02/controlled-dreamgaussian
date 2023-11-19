@@ -134,7 +134,8 @@ class GUI:
 
                 self.guidance_sd = StableDiffusionControlNet(self.device)
                 print(f"[INFO] loaded SDCN!")
-            if self.opt.mvdream:
+
+            elif self.opt.mvdream:
                 print(f"[INFO] loading MVDream...")
                 from guidance.mvdream_utils import MVDream
 
@@ -981,13 +982,13 @@ class GUI:
     def train(self, iters=500):
         if iters > 0:
             self.prepare_train()
-            for i in tqdm.trange(iters):
+            for _ in tqdm.trange(iters):
                 self.train_step()
             # do a last prune
             self.renderer.gaussians.prune(min_opacity=0.01, extent=1, max_screen_size=1)
         # save
         self.save_model(mode="model")
-        self.save_model(mode="geo+tex")
+        # self.save_model(mode="geo+tex")
 
 
 if __name__ == "__main__":
