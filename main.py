@@ -230,8 +230,8 @@ class GUI:
             poses = []
             vers, hors, radii = [], [], []
             # avoid too large elevation (> 80 or < -80), and make sure it always cover [-30, 30]
-            min_ver = max(min(-30, -30 - self.opt.elevation), -80 - self.opt.elevation)
-            max_ver = min(max(30, 30 - self.opt.elevation), 80 - self.opt.elevation)
+            min_ver = max(min(-30, -30 - self.opt.elevation), -50 - self.opt.elevation)
+            max_ver = min(max(30, 30 - self.opt.elevation), 50 - self.opt.elevation)
 
             for _ in range(self.opt.batch_size):
                 # render random view
@@ -349,9 +349,9 @@ class GUI:
                 if self.step % self.opt.densification_interval == 0:
                     self.renderer.gaussians.densify_and_prune(
                         self.opt.densify_grad_threshold,
-                        min_opacity=0.01,
+                        min_opacity=0.1,
                         extent=0.5,
-                        max_screen_size=1,
+                        max_screen_size=0.8,
                     )
 
                 if self.step % self.opt.opacity_reset_interval == 0:

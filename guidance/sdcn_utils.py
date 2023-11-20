@@ -5,11 +5,13 @@ from diffusers import (
     PNDMScheduler,
     DDIMScheduler,
     StableDiffusionControlNetPipeline,
+    ControlNetModel,
 )
 from diffusers.utils.import_utils import is_xformers_available
+from diffusers.utils.torch_utils import randn_tensor
 from mvdream.ldm.models.diffusion.ddim import DDIMSampler
 from mvdream.camera_utils import get_camera, convert_opengl_to_blender, normalize_camera
-from diffusers import DDIMScheduler
+from diffusers.image_processor import VaeImageProcessor
 
 
 # suppress partial model loading warning
@@ -65,10 +67,13 @@ class StableDiffusionControlNet(nn.Module):
             pipe.to(device)
 
         self.vae = pipe.vae
+        self.controlnet = pipe.controlnet
         self.tokenizer = pipe.tokenizer
         self.text_encoder = pipe.text_encoder
         self.unet = pipe.unet
-
+        self.image_processor = VaeImageProcessor(
+            vae_scale_factor=self.vae_scale_factor, do_convert_rgb=True
+        )
         self.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
 
         del pipe
@@ -138,13 +143,17 @@ class StableDiffusionControlNet(nn.Module):
 
     def train_step(
         self,
-        pred_rgb,  # [B, C, H, W], B is multiples of 4
-        camera,  # [B, 4, 4]
+        pred_rgb,  # TODO:This can be [B,C,H,W] or [C,H*N_1,W*N_2], modify the code accordingly
+        camera,  # TODO: [B, 4, 4], modify the code accordingly
         step_ratio=None,
-        guidance_scale=50,
+        guidance_scale=7.5,
         as_latent=False,
     ):
-        batch_size = pred_rgb.shape[0]
+        # batch_size = pred_rgb.shape[0]
+        # TODO: get the width and height of the generate image
+        # width=???
+        # height=???
+
         pred_rgb = pred_rgb.to(self.dtype)
 
         if as_latent:
@@ -155,11 +164,14 @@ class StableDiffusionControlNet(nn.Module):
             )
         else:
             # interp to 256x256 to be fed into vae.
+            # TODO:Check the width and height of the generate image
             pred_rgb_256 = F.interpolate(
-                pred_rgb, (256, 256), mode="bilinear", align_corners=False
+                pred_rgb, (width, height), mode="bilinear", align_corners=False
             )
             # encode image into latents with vae, requires grad!
             latents = self.encode_imgs(pred_rgb_256)
+            num_images_per_prompt = 1
+            batch_size = 1
 
         if step_ratio is not None:
             # dreamtime-like
@@ -176,18 +188,30 @@ class StableDiffusionControlNet(nn.Module):
                 dtype=torch.long,
                 device=self.device,
             )
+        # 7.1 Create tensor stating which controlnets to keep
+        # controlnet_keep = []
+        # for i in range(len(timesteps)):
+        #     keeps = [
+        #         1.0 - float(i / len(timesteps) < s or (i + 1) / len(timesteps) > e)
+        #         for s, e in zip(control_guidance_start, control_guidance_end)
+        #     ]
+        #     controlnet_keep.append(
+        #         keeps[0] if isinstance(controlnet, ControlNetModel) else keeps
+        #     )
 
         # camera = convert_opengl_to_blender(camera)
         # flip_yz = torch.tensor([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]).unsqueeze(0)
         # camera = torch.matmul(flip_yz.to(camera), camera)
+
         camera = camera[:, [0, 2, 1, 3]]  # to blender convention (flip y & z axis)
         camera[:, 1] *= -1
-        # TODO:Base on the camera to generate the openpose images
+
         camera = normalize_camera(camera).view(batch_size, 16)
 
         camera = camera.repeat(2, 1)
-        # TODO: change context to match the input of ControlNet
-        context = {"context": self.embeddings, "camera": camera, "num_frames": 4}
+
+        # TODO:Base on the camera to generate the openpose images, blender convention!!!
+        # image= ???
 
         # predict the noise residual with unet, NO grad!
         with torch.no_grad():
@@ -198,13 +222,48 @@ class StableDiffusionControlNet(nn.Module):
             latent_model_input = torch.cat([latents_noisy] * 2)
             tt = torch.cat([t] * 2)
 
+            # Run controlnet
+
+            image = self.prepare_image(
+                image=image,
+                width=width,
+                height=height,
+                batch_size=batch_size * 1,
+                num_images_per_prompt=1,
+                device=device,
+                dtype=self.controlnet.dtype,
+                do_classifier_free_guidance=self.do_classifier_free_guidance,
+                guess_mode=False,
+            )
+            height, width = image.shape[-2:]
+
+            control_model_input = latent_model_input
+            controlnet_prompt_embeds = self.embeddings
+            down_block_res_samples, mid_block_res_sample = self.controlnet(
+                control_model_input,
+                t,
+                encoder_hidden_states=controlnet_prompt_embeds,
+                controlnet_cond=image,
+                # conditioning_scale=cond_scale,
+                guess_mode=False,
+                return_dict=False,
+            )
             # import kiui
             # kiui.lo(latent_model_input, t, context['context'], context['camera'])
 
+            # noise_pred = self.unet(
+            #     latent_model_input, tt, encoder_hidden_states=context
+            # ).sample
             noise_pred = self.unet(
-                latent_model_input, tt, encoder_hidden_states=context
+                latent_model_input,
+                t,
+                encoder_hidden_states=self.embeddings,
+                # timestep_cond=timestep_cond,
+                # cross_attention_kwargs=cross_attention_kwargs,
+                down_block_additional_residuals=down_block_res_samples,
+                mid_block_additional_residual=mid_block_res_sample,
+                return_dict=False,
             ).sample
-
             # perform guidance (high scale from paper!)
             noise_pred_uncond, noise_pred_pos = noise_pred.chunk(2)
             noise_pred = noise_pred_uncond + guidance_scale * (
@@ -226,31 +285,97 @@ class StableDiffusionControlNet(nn.Module):
 
         return loss
 
+    def prepare_latents(
+        self,
+        batch_size,
+        num_channels_latents,
+        height,
+        width,
+        dtype,
+        device,
+        generator,
+        latents=None,
+    ):
+        shape = (
+            batch_size,
+            num_channels_latents,
+            height // self.vae_scale_factor,
+            width // self.vae_scale_factor,
+        )
+        if isinstance(generator, list) and len(generator) != batch_size:
+            raise ValueError(
+                f"You have passed a list of generators of length {len(generator)}, but requested an effective batch"
+                f" size of {batch_size}. Make sure the batch size matches the length of the generators."
+            )
+
+        if latents is None:
+            latents = randn_tensor(
+                shape, generator=generator, device=device, dtype=dtype
+            )
+        else:
+            latents = latents.to(device)
+
+        # scale the initial noise by the standard deviation required by the scheduler
+        latents = latents * self.scheduler.init_noise_sigma
+        return latents
+
+    def prepare_image(
+        self,
+        image,
+        width,
+        height,
+        batch_size,
+        num_images_per_prompt,
+        device,
+        dtype,
+        do_classifier_free_guidance=False,
+        guess_mode=False,
+    ):
+        image = self.control_image_processor.preprocess(
+            image, height=height, width=width
+        ).to(dtype=torch.float32)
+        image_batch_size = image.shape[0]
+
+        if image_batch_size == 1:
+            repeat_by = batch_size
+        else:
+            # image batch size is the same as prompt batch size
+            repeat_by = num_images_per_prompt
+
+        image = image.repeat_interleave(repeat_by, dim=0)
+
+        image = image.to(device=device, dtype=dtype)
+
+        if do_classifier_free_guidance and not guess_mode:
+            image = torch.cat([image] * 2)
+
+        return image
+
     def decode_latents(self, latents):
         imgs = self.model.decode_first_stage(latents)
         imgs = ((imgs + 1) / 2).clamp(0, 1)
         return imgs
 
     def encode_imgs(self, imgs):
-        # imgs: [B, 3, 256, 256]
+        # imgs: [B, 3, H, W]
+
         imgs = 2 * imgs - 1
-        latents = self.model.get_first_stage_encoding(
-            self.model.encode_first_stage(imgs)
-        )
-        return latents  # [B, 4, 32, 32]
+
+        posterior = self.vae.encode(imgs).latent_dist
+        latents = posterior.sample() * self.vae.config.scaling_factor
+
+        return latents
 
     @torch.no_grad()
     def prompt_to_img(
         self,
         prompts,
         negative_prompts="",
-        height=256,
-        width=256,
+        height=512,
+        width=512,
         num_inference_steps=50,
         guidance_scale=7.5,
         latents=None,
-        elevation=0,
-        azimuth_start=0,
     ):
         if isinstance(prompts, str):
             prompts = [prompts]
@@ -258,34 +383,20 @@ class StableDiffusionControlNet(nn.Module):
         if isinstance(negative_prompts, str):
             negative_prompts = [negative_prompts]
 
-        batch_size = len(prompts) * 4
+        # Prompts -> text embeds
+        self.get_text_embeds(prompts, negative_prompts)
 
         # Text embeds -> img latents
-        sampler = DDIMSampler(self.model)
-        shape = [4, height // 8, width // 8]
-        c_ = {"context": self.encode_text(prompts).repeat(4, 1, 1)}
-        uc_ = {"context": self.encode_text(negative_prompts).repeat(4, 1, 1)}
-
-        camera = get_camera(4, elevation=elevation, azimuth_start=azimuth_start)
-        camera = camera.repeat(batch_size // 4, 1).to(self.device)
-
-        c_["camera"] = uc_["camera"] = camera
-        c_["num_frames"] = uc_["num_frames"] = 4
-
-        latents, _ = sampler.sample(
-            S=num_inference_steps,
-            conditioning=c_,
-            batch_size=batch_size,
-            shape=shape,
-            verbose=False,
-            unconditional_guidance_scale=guidance_scale,
-            unconditional_conditioning=uc_,
-            eta=0,
-            x_T=None,
-        )
+        latents = self.produce_latents(
+            height=height,
+            width=width,
+            latents=latents,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+        )  # [1, 4, 64, 64]
 
         # Img latents -> imgs
-        imgs = self.decode_latents(latents)  # [4, 3, 256, 256]
+        imgs = self.decode_latents(latents)  # [1, 3, 512, 512]
 
         # Img to Numpy
         imgs = imgs.detach().cpu().permute(0, 2, 3, 1).numpy()
