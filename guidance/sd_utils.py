@@ -68,6 +68,9 @@ class StableDiffusion(nn.Module):
             # pipe.enable_model_cpu_offload()
         else:
             pipe.to(device)
+        # use xformers for faster inference
+        if is_xformers_available():
+            pipe.enable_xformers()
 
         self.vae = pipe.vae
         self.tokenizer = pipe.tokenizer
