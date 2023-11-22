@@ -328,6 +328,9 @@ class GaussianModel:
         if self.active_sh_degree < self.max_sh_degree:
             self.active_sh_degree += 1
 
+    def num_points(self):
+        return self.get_xyz.shape[0]
+
     def create_from_pcd(self, pcd : BasicPointCloud, spatial_lr_scale : float = 1):
         self.spatial_lr_scale = spatial_lr_scale
         fused_point_cloud = torch.tensor(np.asarray(pcd.points)).float().cuda()
