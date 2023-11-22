@@ -58,7 +58,7 @@ feature_lr: 0.01
 opacity_lr: 0.05
 scaling_lr: 0.005
 rotation_lr: 0.005
-percent_dense: 0.1
+percent_dense: 0.01
 density_start_iter: 0
 density_end_iter: 3000
 densification_interval: 75
