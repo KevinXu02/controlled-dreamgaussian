@@ -204,6 +204,13 @@ class GUI:
             self.renderer.gaussians.update_learning_rate(self.step)
 
             loss = 0
+            ###if step=200: add negative prompt
+            if self.enable_sd:
+                if self.step == 200:
+                    extra_prompt = "unrealistic, blurry, low quality, out of focus,ugly, low contrast, dull, dark, low-resolution, gloomy"
+                    self.guidance_sd.get_text_embeds(
+                        [self.prompt], [self.negative_prompt + extra_prompt]
+                    )
 
             ### known view
             if self.input_img_torch is not None:
@@ -230,8 +237,8 @@ class GUI:
             poses = []
             vers, hors, radii = [], [], []
             # avoid too large elevation (> 80 or < -80), and make sure it always cover [-30, 30]
-            min_ver = max(min(-30, -30 - self.opt.elevation), -50 - self.opt.elevation)
-            max_ver = min(max(30, 30 - self.opt.elevation), 50 - self.opt.elevation)
+            min_ver = max(min(-30, -30 - self.opt.elevation), -60 - self.opt.elevation)
+            max_ver = min(max(30, 30 - self.opt.elevation), 60 - self.opt.elevation)
 
             for _ in range(self.opt.batch_size):
                 # render random view
@@ -347,11 +354,17 @@ class GUI:
                 )
 
                 if self.step % self.opt.densification_interval == 0:
+                    # original 0.01, 4, 1.0
+                    # tuning this for better quality
                     self.renderer.gaussians.densify_and_prune(
                         self.opt.densify_grad_threshold,
-                        min_opacity=0.1,
-                        extent=0.5,
-                        max_screen_size=0.8,
+                        min_opacity=0.01,
+                        extent=2,
+                        max_screen_size=0.15,
+                    )
+                    # print number of gaussians
+                    print(
+                        f"[INFO] num gaussians: {self.renderer.gaussians.num_points()}"
                     )
 
                 if self.step % self.opt.opacity_reset_interval == 0:
@@ -635,6 +648,14 @@ class GUI:
             path = os.path.join(self.opt.outdir, self.opt.save_path + "_model.ply")
             self.renderer.gaussians.save_ply(path)
 
+        print(f"[INFO] save model to {path}.")
+
+    def save_model_ply(self, iter):
+        os.makedirs(self.opt.outdir, exist_ok=True)
+        path = os.path.join(
+            self.opt.outdir, self.opt.save_path + "_model_" + str(iter) + ".ply"
+        )
+        self.renderer.gaussians.save_ply(path)
         print(f"[INFO] save model to {path}.")
 
     def register_dpg(self):
@@ -982,13 +1003,19 @@ class GUI:
     def train(self, iters=500):
         if iters > 0:
             self.prepare_train()
-            for _ in tqdm.trange(iters):
+            for iter in tqdm.trange(iters):
                 self.train_step()
+                # save ply per 500 iters
+                if iter % 500 == 0 and iter != 0:
+                    self.save_model_ply(iter)
             # do a last prune
-            self.renderer.gaussians.prune(min_opacity=0.01, extent=1, max_screen_size=1)
+            self.renderer.gaussians.prune(min_opacity=0.05, extent=4, max_screen_size=1)
+
         # save
         self.save_model(mode="model")
         # self.save_model(mode="geo+tex")
+        # visulize in gui
+        self.render()
 
 
 if __name__ == "__main__":
