@@ -5,6 +5,10 @@ This repository contains a super unofficial implementation for [DreamGaussian: G
 ## Install
 
 ```bash
+conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=11.8 -c pytorch -c nvidia
+
+pip install -U xformers --index-url https://download.pytorch.org/whl/cu118
+
 pip install -r requirements.txt
 
 # a modified gaussian splatting (+ depth, alpha rendering)
@@ -14,8 +18,8 @@ pip install ./diff-gaussian-rasterization
 # simple-knn
 pip install ./simple-knn
 
-# nvdiffrast
-pip install git+https://github.com/NVlabs/nvdiffrast/
+# nvdiffrast 
+# pip install git+https://github.com/NVlabs/nvdiffrast/
 
 # kiuikit
 pip install git+https://github.com/ashawkey/kiuikit
