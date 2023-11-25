@@ -358,7 +358,7 @@ class GUI:
                     # tuning this for better quality
                     self.renderer.gaussians.densify_and_prune(
                         self.opt.densify_grad_threshold,
-                        min_opacity=0.01,
+                        min_opacity=0.005,
                         extent=2,
                         max_screen_size=0.15,
                     )
@@ -1009,13 +1009,13 @@ class GUI:
                 if iter % 500 == 0 and iter != 0:
                     self.save_model_ply(iter)
             # do a last prune
-            self.renderer.gaussians.prune(min_opacity=0.05, extent=4, max_screen_size=1)
+            self.renderer.gaussians.prune(
+                min_opacity=0.001, extent=4, max_screen_size=0.6
+            )
 
         # save
         self.save_model(mode="model")
         # self.save_model(mode="geo+tex")
-        # visulize in gui
-        # self.render()
 
 
 if __name__ == "__main__":
