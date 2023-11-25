@@ -20,3 +20,5 @@ images
 *.mp4
 
 simple-knn/build
+combined_image.jpg
+combined.png

@@ -1015,7 +1015,7 @@ class GUI:
         self.save_model(mode="model")
         # self.save_model(mode="geo+tex")
         # visulize in gui
-        self.render()
+        # self.render()
 
 
 if __name__ == "__main__":
