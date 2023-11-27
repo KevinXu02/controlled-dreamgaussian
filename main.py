@@ -312,13 +312,26 @@ class GUI:
 
             # guidance loss
             if self.enable_sd:
-                if self.opt.mvdream:
+                if self.opt.sdcn:
+                    cur_cam = MiniCam(
+                        pose,
+                        self.W,
+                        self.H,
+                        self.cam.fovy,
+                        self.cam.fovx,
+                        self.cam.near,
+                        self.cam.far,
+                    )
+                    loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
+                        images, pose, cur_cam, step_ratio, hors=hors
+                    )
+                elif self.opt.mvdream:
                     loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
                         images, poses, step_ratio
                     )
                 else:
                     loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
-                        images, step_ratio
+                        images, step_ratio, hors=hors, vers=vers
                     )
 
             if self.enable_zero123:
@@ -358,7 +371,7 @@ class GUI:
                     # tuning this for better quality
                     self.renderer.gaussians.densify_and_prune(
                         self.opt.densify_grad_threshold,
-                        min_opacity=0.005,
+                        min_opacity=0.01,
                         extent=2,
                         max_screen_size=0.15,
                     )
@@ -1009,9 +1022,7 @@ class GUI:
                 if iter % 500 == 0 and iter != 0:
                     self.save_model_ply(iter)
             # do a last prune
-            self.renderer.gaussians.prune(
-                min_opacity=0.001, extent=4, max_screen_size=0.6
-            )
+            self.renderer.gaussians.prune(min_opacity=0.01, extent=1, max_screen_size=1)
 
         # save
         self.save_model(mode="model")
