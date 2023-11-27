@@ -16,6 +16,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import os
+
 
 def seed_everything(seed):
     torch.manual_seed(seed)
@@ -32,6 +34,8 @@ class StableDiffusion(nn.Module):
         vram_O=True,
         sd_version="2.1",
         hf_key=None,
+        load_from_local=True,
+        local_path="./pretrained_models/v1-5-pruned-emaonly.ckpt",
         t_range=[0.02, 0.98],
     ):
         super().__init__()
@@ -55,10 +59,20 @@ class StableDiffusion(nn.Module):
 
         self.dtype = torch.float16 if fp16 else torch.float32
 
-        # Create model
-        pipe = StableDiffusionPipeline.from_pretrained(
-            model_key, torch_dtype=self.dtype
-        )
+        if load_from_local:
+            print(f"[INFO] loading model from local checkpoint: {local_path}")
+            if not os.path.isfile(local_path):
+                raise ValueError(f"Stable-diffusion model {local_path} not found.")
+            pipe = StableDiffusionPipeline.from_single_file(
+                local_path,
+                torch_dtype=self.dtype,
+            )
+        else:
+            print(f"[INFO] loading model from hugging face: {model_key}")
+            pipe = StableDiffusionPipeline.from_pretrained(
+                model_key,
+                torch_dtype=self.dtype,
+            )
 
         if vram_O:
             pipe.enable_sequential_cpu_offload()
@@ -77,8 +91,8 @@ class StableDiffusion(nn.Module):
         self.text_encoder = pipe.text_encoder
         self.unet = pipe.unet
 
-        self.scheduler = DDIMScheduler.from_pretrained(
-            model_key, subfolder="scheduler", torch_dtype=self.dtype
+        self.scheduler = DDIMScheduler.from_config(
+            pipe.scheduler.config, torch_dtype=self.dtype
         )
 
         del pipe
