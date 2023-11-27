@@ -70,7 +70,7 @@ class StableDiffusion(nn.Module):
             pipe.to(device)
         # use xformers for faster inference
         if is_xformers_available():
-            pipe.enable_xformers()
+            pipe.enable_xformers_memory_efficient_attention()
 
         self.vae = pipe.vae
         self.tokenizer = pipe.tokenizer
@@ -163,7 +163,7 @@ class StableDiffusion(nn.Module):
         self,
         pred_rgb,
         step_ratio=None,
-        guidance_scale=100,
+        guidance_scale=7.5,
         as_latent=False,
         vers=None,
         hors=None,
