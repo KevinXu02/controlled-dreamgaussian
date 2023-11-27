@@ -47,17 +47,13 @@ class StableDiffusionControlNet(nn.Module):
         self.dtype = torch.float16 if fp16 else torch.float32
 
         # Create model
-        controlnet_path = "./pretrained_models/controlnet.pt"
-        sd_path = "./pretrained_models/sd.pt"
+        controlnet_path = "./pretrained_models/control_v11p_sd15_openpose.pth"
+        sd_path = "./pretrained_models/v1-5-pruned-emaonly.ckpt"
 
-        controlnet = torch.load(controlnet_path, map_location=self.device)
-        sd = torch.load(sd_path, map_location=self.device)
+        controlnet = ControlNetModel.from_single_file(controlnet_path)
 
-        pipe = StableDiffusionControlNetPipeline(
-            controlnet=controlnet,
-            sd=sd,
-            device=self.device,
-            torch_dtype=self.dtype,
+        pipe = StableDiffusionControlNetPipeline.from_single_file(
+            sd_path, controlnet=controlnet, torch_dtype=self.dtype
         )
 
         if vram_O:
@@ -90,13 +86,25 @@ class StableDiffusionControlNet(nn.Module):
 
     @torch.no_grad()
     def get_text_embeds(self, prompts, negative_prompts):
-        pos_embeds = self.encode_text(prompts).repeat(4, 1, 1)  # [1, 77, 768]
-        neg_embeds = self.encode_text(negative_prompts).repeat(4, 1, 1)
-        self.embeddings = torch.cat([neg_embeds, pos_embeds], dim=0)  # [2, 77, 768]
+        pos_embeds = self.encode_text(prompts)  # [1, 77, 768]
+        neg_embeds = self.encode_text(negative_prompts)
+        self.embeddings["pos"] = pos_embeds
+        self.embeddings["neg"] = neg_embeds
+
+        # directional embeddings
+        for d in ["front", "side", "back"]:
+            embeds = self.encode_text([f"{p}, {d} view" for p in prompts])
+            self.embeddings[d] = embeds
 
     def encode_text(self, prompt):
         # prompt: [str]
-        embeddings = self.model.get_learned_conditioning(prompt).to(self.device)
+        inputs = self.tokenizer(
+            prompt,
+            padding="max_length",
+            max_length=self.tokenizer.model_max_length,
+            return_tensors="pt",
+        )
+        embeddings = self.text_encoder(inputs.input_ids.to(self.device))[0]
         return embeddings
 
     # @torch.no_grad()
