@@ -22,3 +22,6 @@ images
 simple-knn/build
 combined_image.jpg
 combined.png
+pretrained_models/control_v11p_sd15_openpose.pth
+pretrained_models/v1-5-pruned-emaonly.ckpt
+T_pose.jpg
