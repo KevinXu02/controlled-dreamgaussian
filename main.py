@@ -237,8 +237,8 @@ class GUI:
             poses = []
             vers, hors, radii = [], [], []
             # avoid too large elevation (> 80 or < -80), and make sure it always cover [-30, 30]
-            min_ver = max(min(-30, -30 - self.opt.elevation), -60 - self.opt.elevation)
-            max_ver = min(max(30, 30 - self.opt.elevation), 60 - self.opt.elevation)
+            min_ver = max(min(-30, -30 - self.opt.elevation), -75 - self.opt.elevation)
+            max_ver = min(max(30, 30 - self.opt.elevation), 75 - self.opt.elevation)
 
             for _ in range(self.opt.batch_size):
                 # render random view
@@ -315,8 +315,8 @@ class GUI:
                 if self.opt.sdcn:
                     cur_cam = MiniCam(
                         pose,
-                        self.W,
-                        self.H,
+                        512,
+                        512,
                         self.cam.fovy,
                         self.cam.fovx,
                         self.cam.near,

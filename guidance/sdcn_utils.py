@@ -14,7 +14,7 @@ from openpose_utils import *
 from cam_utils import orbit_camera
 from gs_renderer import MiniCam
 from openpose_utils import *
-
+import kiui
 import numpy as np
 
 # suppress partial model loading warning
@@ -70,9 +70,16 @@ class StableDiffusionControlNet(nn.Module):
         self.tokenizer = pipe.tokenizer
         self.text_encoder = pipe.text_encoder
         self.unet = pipe.unet
+        self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
         self.image_processor = VaeImageProcessor(
             vae_scale_factor=self.vae_scale_factor, do_convert_rgb=True
         )
+        self.control_image_processor = VaeImageProcessor(
+            vae_scale_factor=self.vae_scale_factor,
+            do_convert_rgb=True,
+            do_normalize=False,
+        )
+
         self.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
 
         del pipe
@@ -291,12 +298,15 @@ class StableDiffusionControlNet(nn.Module):
                 height=height,
                 batch_size=batch_size * 1,
                 num_images_per_prompt=1,
-                device=device,
+                device=self.device,
                 dtype=self.controlnet.dtype,
-                do_classifier_free_guidance=self.do_classifier_free_guidance,
                 guess_mode=False,
             )
             height, width = image.shape[-2:]
+            # visualize image for debug
+            # import kiui
+            # kiui.lo(embeddings, camera)
+            # kiui.vis.plot_image(image[0].cpu().permute(1, 2, 0).numpy())
 
             control_model_input = latent_model_input
             controlnet_prompt_embeds = embeddings
