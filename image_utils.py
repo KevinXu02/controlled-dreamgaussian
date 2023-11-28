@@ -4,9 +4,11 @@ from math import ceil, floor
 
 
 def resize_and_fit_images(folder_path, output_path=None):
-    # List all image files in the folder
+    # List all image files in the folder, name begins with a number
     image_files = [
-        f for f in os.listdir(folder_path) if f.endswith((".png", ".jpg", ".jpeg"))
+        f
+        for f in os.listdir(folder_path)
+        if os.path.isfile(os.path.join(folder_path, f)) and f[0].isdigit()
     ]
 
     # Determine grid size based on the number of images
