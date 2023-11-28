@@ -13,9 +13,10 @@ from diffusers.image_processor import VaeImageProcessor
 from openpose_utils import *
 from cam_utils import orbit_camera
 from gs_renderer import MiniCam
-from openpose_utils import *
 import kiui
 import numpy as np
+
+from PIL import Image
 
 # suppress partial model loading warning
 logging.set_verbosity_error()
@@ -38,7 +39,7 @@ class StableDiffusionControlNet(nn.Module):
         self,
         device,
         fp16=True,
-        vram_O=True,
+        vram_O=False,
         t_range=[0.02, 0.98],
     ):
         super().__init__()
@@ -53,9 +54,10 @@ class StableDiffusionControlNet(nn.Module):
         controlnet = ControlNetModel.from_single_file(controlnet_path)
 
         pipe = StableDiffusionControlNetPipeline.from_single_file(
-            sd_path, controlnet=controlnet, torch_dtype=self.dtype
+            sd_path,
+            controlnet=controlnet,
+            torch_dtype=self.dtype,
         )
-
         if vram_O:
             pipe.enable_sequential_cpu_offload()
             pipe.enable_vae_slicing()
@@ -65,22 +67,28 @@ class StableDiffusionControlNet(nn.Module):
         else:
             pipe.to(device)
 
+        if is_xformers_available():
+            pipe.enable_xformers_memory_efficient_attention()
+
         self.vae = pipe.vae
         self.controlnet = pipe.controlnet
         self.tokenizer = pipe.tokenizer
         self.text_encoder = pipe.text_encoder
         self.unet = pipe.unet
+
         self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
         self.image_processor = VaeImageProcessor(
             vae_scale_factor=self.vae_scale_factor, do_convert_rgb=True
         )
         self.control_image_processor = VaeImageProcessor(
             vae_scale_factor=self.vae_scale_factor,
-            do_convert_rgb=True,
+            do_convert_rgb=False,
             do_normalize=False,
         )
 
-        self.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
+        self.scheduler = DDIMScheduler.from_config(
+            pipe.scheduler.config, torch_dtype=self.dtype
+        )
 
         del pipe
 
@@ -114,62 +122,17 @@ class StableDiffusionControlNet(nn.Module):
         embeddings = self.text_encoder(inputs.input_ids.to(self.device))[0]
         return embeddings
 
-    # @torch.no_grad()
-    # def refine(
-    #     self,
-    #     pred_rgb,
-    #     camera,
-    #     guidance_scale=100,
-    #     steps=50,
-    #     strength=0.8,
-    # ):
-    #     batch_size = pred_rgb.shape[0]
-    #     pred_rgb_256 = F.interpolate(
-    #         pred_rgb, (256, 256), mode="bilinear", align_corners=False
-    #     )
-    #     latents = self.encode_imgs(pred_rgb_256.to(self.dtype))
-    #     # latents = torch.randn((1, 4, 64, 64), device=self.device, dtype=self.dtype)
-
-    #     self.scheduler.set_timesteps(steps)
-    #     init_step = int(steps * strength)
-    #     latents = self.scheduler.add_noise(
-    #         latents, torch.randn_like(latents), self.scheduler.timesteps[init_step]
-    #     )
-
-    #     camera = camera[:, [0, 2, 1, 3]]  # to blender convention (flip y & z axis)
-    #     camera[:, 1] *= -1
-    #     camera = normalize_camera(camera).view(batch_size, 16)
-    #     camera = camera.repeat(2, 1)
-    #     context = {"context": self.embeddings, "camera": camera, "num_frames": 4}
-
-    #     for i, t in enumerate(self.scheduler.timesteps[init_step:]):
-    #         latent_model_input = torch.cat([latents] * 2)
-
-    #         tt = torch.cat([t.unsqueeze(0).repeat(batch_size)] * 2).to(self.device)
-
-    #         noise_pred = self.model.apply_model(latent_model_input, tt, context)
-
-    #         noise_pred_uncond, noise_pred_cond = noise_pred.chunk(2)
-    #         noise_pred = noise_pred_uncond + guidance_scale * (
-    #             noise_pred_cond - noise_pred_uncond
-    #         )
-
-    #         latents = self.scheduler.step(noise_pred, t, latents).prev_sample
-
-    #     imgs = self.decode_latents(latents)  # [1, 3, 512, 512]
-    #     return imgs
-
     def train_step(
         self,
         pred_rgb,  # TODO:This can be [B,C,H,W] or [C,H*N_1,W*N_2], modify the code accordingly
         camera,  # TODO: [B, 4, 4], modify the code accordingly
         cur_cam,
         step_ratio=None,
-        guidance_scale=7.5,
+        guidance_scale=10,
         as_latent=False,
         hors=None,
     ):
-        batch_size = pred_rgb.shape[0]
+        batch_size = 1
         # TODO: get the width and height of the generate image
         width = 512
         height = 512
@@ -190,6 +153,34 @@ class StableDiffusionControlNet(nn.Module):
             # encode image into latents with vae, requires grad!
             latents = self.encode_imgs(pred_rgb_512)
 
+        # 7.1 Create tensor stating which controlnets to keep
+        # controlnet_keep = []
+        # for i in range(len(timesteps)):
+        #     keeps = [
+        #         1.0 - float(i / len(timesteps) < s or (i + 1) / len(timesteps) > e)
+        #         for s, e in zip(control_guidance_start, control_guidance_end)
+        #     ]
+        #     controlnet_keep.append(
+        #         keeps[0] if isinstance(controlnet, ControlNetModel) else keeps
+        #     )
+
+        # camera = convert_opengl_to_blender(camera)
+        # flip_yz = torch.tensor([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]).unsqueeze(0)
+        # camera = torch.matmul(flip_yz.to(camera), camera)
+
+        w2c = np.linalg.inv(camera)
+        w2c[1:3, :3] *= -1
+        w2c[:3, 3] *= -1
+
+        K = cur_cam.K()
+        RT = w2c[:3, :]
+        # TODO:Base on the camera to generate the openpose images, blender convention!!!
+
+        openpose_image = draw_openpose_human_pose(
+            K,
+            RT,
+        )
+        # predict the noise residual with unet, NO grad!
         with torch.no_grad():
             if step_ratio is not None:
                 # dreamtime-like
@@ -206,52 +197,17 @@ class StableDiffusionControlNet(nn.Module):
                     dtype=torch.long,
                     device=self.device,
                 )
+            # w(t), sigma_t^2
+            w = (1 - self.alphas[t]).view(batch_size, 1, 1, 1)
 
-            # 7.1 Create tensor stating which controlnets to keep
-            # controlnet_keep = []
-            # for i in range(len(timesteps)):
-            #     keeps = [
-            #         1.0 - float(i / len(timesteps) < s or (i + 1) / len(timesteps) > e)
-            #         for s, e in zip(control_guidance_start, control_guidance_end)
-            #     ]
-            #     controlnet_keep.append(
-            #         keeps[0] if isinstance(controlnet, ControlNetModel) else keeps
-            #     )
+            # add noise
+            noise = torch.randn_like(latents)
+            latents_noisy = self.scheduler.add_noise(latents, noise, t)
+            # pred noise
+            latent_model_input = torch.cat([latents_noisy] * 2)
+            tt = torch.cat([t] * 2)
 
-            # camera = convert_opengl_to_blender(camera)
-            # flip_yz = torch.tensor([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]).unsqueeze(0)
-            # camera = torch.matmul(flip_yz.to(camera), camera)
-            T_pose_keypoints = np.array(
-                [
-                    [0, 158, 14],
-                    [0, 138, 0],
-                    [-17, 138, 0],
-                    [-17, 113, 0],
-                    [-17, 88, 0],
-                    [17, 138, 0],
-                    [17, 113, 0],
-                    [17, 88, 0],
-                    [-10, 92, 0],
-                    [-10, 52, 0],
-                    [-10, 16, 0],
-                    [10, 92, 0],
-                    [10, 52, 0],
-                    [10, 16, 0],
-                    [-3, 161, 11],
-                    [3, 161, 11],
-                    [-7, 158, 3],
-                    [7, 158, 3],
-                ]
-            )
-
-            normalized_keypoints = mid_and_scale(T_pose_keypoints)
-            w2c = np.linalg.inv(camera)
-            w2c[1:3, :3] *= -1
-            w2c[:3, 3] *= -1
-
-            K = cur_cam.K()
-            RT = w2c[:3, :]
-            # TODO:Base on the camera to generate the openpose images, blender convention!!!
+            # Run controlnet
 
             if hors is None:
                 embeddings = torch.cat(
@@ -275,47 +231,39 @@ class StableDiffusionControlNet(nn.Module):
                     + [self.embeddings["neg"].expand(batch_size, -1, -1)]
                 )
 
-            image = draw_openpose_human_pose(
-                normalized_keypoints,
-                (512, 512),
-                K,
-                RT,
-            )
-            # predict the noise residual with unet, NO grad!
-
-            # add noise
-            noise = torch.randn_like(latents)
-            latents_noisy = self.scheduler.add_noise(latents, noise, t)
-            # pred noise
-            latent_model_input = torch.cat([latents_noisy] * 2)
-            tt = torch.cat([t] * 2)
-            w = (1 - self.alphas[t]).view(batch_size, 1, 1, 1)
-            # Run controlnet
+            openpose_image = Image.fromarray(openpose_image)
 
             image = self.prepare_image(
-                image=image,
+                image=openpose_image,
                 width=width,
                 height=height,
                 batch_size=batch_size * 1,
                 num_images_per_prompt=1,
-                device=self.device,
-                dtype=self.controlnet.dtype,
+                do_classifier_free_guidance=True,
                 guess_mode=False,
+                device=self.device,
+                dtype=self.dtype,
             )
             height, width = image.shape[-2:]
+
             # visualize image for debug
-            # import kiui
+
             # kiui.lo(embeddings, camera)
             # kiui.vis.plot_image(image[0].cpu().permute(1, 2, 0).numpy())
 
+            # controlnet(s) inference
             control_model_input = latent_model_input
             controlnet_prompt_embeds = embeddings
+            # print input shape
+            # print(latent_model_input.shape)
+            # print(controlnet_prompt_embeds.shape)
+            # print(image.shape)
             down_block_res_samples, mid_block_res_sample = self.controlnet(
-                control_model_input,
-                tt,
+                sample=control_model_input,
+                timestep=tt,
                 encoder_hidden_states=controlnet_prompt_embeds,
                 controlnet_cond=image,
-                # conditioning_scale=cond_scale,
+                conditioning_scale=0,
                 guess_mode=False,
                 return_dict=False,
             )
@@ -331,8 +279,8 @@ class StableDiffusionControlNet(nn.Module):
                 encoder_hidden_states=embeddings,
                 # timestep_cond=timestep_cond,
                 # cross_attention_kwargs=cross_attention_kwargs,
-                down_block_additional_residuals=down_block_res_samples,
-                mid_block_additional_residual=mid_block_res_sample,
+                # down_block_additional_residuals=down_block_res_samples,
+                # mid_block_additional_residual=mid_block_res_sample,
             ).sample
 
             # perform guidance (high scale from paper!)
@@ -341,7 +289,7 @@ class StableDiffusionControlNet(nn.Module):
                 noise_pred_pos - noise_pred_uncond
             )
 
-        grad = w * (noise_pred - noise)
+        grad = w * (noise_pred - noise).float()
         grad = torch.nan_to_num(grad)
 
         # seems important to avoid NaN...
@@ -400,7 +348,7 @@ class StableDiffusionControlNet(nn.Module):
         num_images_per_prompt,
         device,
         dtype,
-        do_classifier_free_guidance=False,
+        do_classifier_free_guidance=True,
         guess_mode=False,
     ):
         image = self.control_image_processor.preprocess(
@@ -420,12 +368,63 @@ class StableDiffusionControlNet(nn.Module):
 
         if do_classifier_free_guidance and not guess_mode:
             image = torch.cat([image] * 2)
-
+        # print(image.shape)
         return image
 
+    @torch.no_grad()
+    def produce_latents(
+        self,
+        height=512,
+        width=512,
+        num_inference_steps=50,
+        guidance_scale=7.5,
+        latents=None,
+    ):
+        if latents is None:
+            latents = torch.randn(
+                (
+                    1,
+                    self.unet.in_channels,
+                    height // 8,
+                    width // 8,
+                ),
+                device=self.device,
+            )
+
+        batch_size = latents.shape[0]
+        self.scheduler.set_timesteps(num_inference_steps)
+        embeddings = torch.cat(
+            [
+                self.embeddings["pos"].expand(batch_size, -1, -1),
+                self.embeddings["neg"].expand(batch_size, -1, -1),
+            ]
+        )
+
+        for i, t in enumerate(self.scheduler.timesteps):
+            # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
+            latent_model_input = torch.cat([latents] * 2)
+            # predict the noise residual
+            noise_pred = self.unet(
+                latent_model_input, t, encoder_hidden_states=embeddings
+            ).sample
+
+            # perform guidance
+            noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2)
+            noise_pred = noise_pred_uncond + guidance_scale * (
+                noise_pred_cond - noise_pred_uncond
+            )
+
+            # compute the previous noisy sample x_t -> x_t-1
+            latents = self.scheduler.step(noise_pred, t, latents).prev_sample
+
+        return latents
+
     def decode_latents(self, latents):
-        imgs = self.model.decode_first_stage(latents)
-        imgs = ((imgs + 1) / 2).clamp(0, 1)
+        latents = 1 / self.vae.config.scaling_factor * latents
+
+        imgs = self.vae.decode(latents).sample
+        imgs = (imgs / 2 + 0.5).clamp(0, 1)
+
         return imgs
 
     def encode_imgs(self, imgs):
@@ -488,20 +487,54 @@ if __name__ == "__main__":
     opt = parser.parse_args()
 
     device = torch.device("cuda")
+    controlnet_path = "./pretrained_models/control_v11p_sd15_openpose.pth"
+    sd_path = "./pretrained_models/v1-5-pruned-emaonly.ckpt"
 
-    sd = StableDiffusionControlNet(device)
+    controlnet = ControlNetModel.from_single_file(controlnet_path)
 
-    while True:
-        imgs = sd.prompt_to_img(opt.prompt, opt.negative, num_inference_steps=opt.steps)
+    pipe = StableDiffusionControlNetPipeline.from_single_file(
+        sd_path,
+        controlnet=controlnet,
+    )
 
-        grid = np.concatenate(
-            [
-                np.concatenate([imgs[0], imgs[1]], axis=1),
-                np.concatenate([imgs[2], imgs[3]], axis=1),
-            ],
-            axis=0,
-        )
+    pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
 
-        # visualize image
-        plt.imshow(grid)
-        plt.show()
+    pose = orbit_camera(-0, 0, 2.5)
+    w2c = np.linalg.inv(pose)
+    w2c[1:3, :3] *= -1
+    w2c[:3, 3] *= -1
+    fovy = 49
+    # print(pose)
+    cur_cam = MiniCam(
+        pose,
+        512,
+        512,
+        np.deg2rad(fovy),
+        np.deg2rad(fovy),
+        0.01,
+        100,
+    )
+    print("fovy:", np.deg2rad(fovy))
+    K = cur_cam.K()
+    RT = w2c[:3, :]
+
+    image = draw_openpose_human_pose(
+        K,
+        RT,
+    )
+    # plt.imshow(image)
+    # plt.show()
+    openpose_image = Image.fromarray(image)
+
+    generator = torch.manual_seed(0)
+    image = pipe(
+        opt.prompt,
+        num_inference_steps=20,
+        generator=generator,
+        image=openpose_image,
+    ).images[0]
+    # show openpose image and generated image
+    plt.imshow(image)
+    plt.show()
+    plt.imshow(openpose_image)
+    plt.show()
