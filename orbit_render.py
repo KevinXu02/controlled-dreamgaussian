@@ -18,13 +18,15 @@ from mesh import Mesh, safe_normalize
 import wandb
 from PIL import Image
 
+import image_utils
+
 
 def render_orbit_imgs(load_path):
     renderer = Renderer(sh_degree=0)
     renderer.initialize(load_path)
     poses = []
     # render from hor -180 to 180 per 20 degree
-    for hor in range(-180, 180, 60):
+    for hor in range(-180, 180, 40):
         pose = orbit_camera(-15, hor, 3)
         poses.append(pose)
 
@@ -54,5 +56,6 @@ def render_orbit_imgs(load_path):
 
 # main
 if __name__ == "__main__":
-    load_path = "logs\darthvader_2_model.ply"
+    load_path = "logs\darthvader_5_model.ply"
     render_orbit_imgs(load_path)
+    grid_image = image_utils.resize_and_fit_images("renders", "renders/gird.png")
