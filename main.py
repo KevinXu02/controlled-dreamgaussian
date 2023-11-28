@@ -208,8 +208,9 @@ class GUI:
             if self.enable_sd:
                 if self.step == 200:
                     extra_prompt = "unrealistic, blurry, low quality, out of focus,ugly, low contrast, dull, dark, low-resolution, gloomy"
+                    self.negative_prompt += extra_prompt
                     self.guidance_sd.get_text_embeds(
-                        [self.prompt], [self.negative_prompt + extra_prompt]
+                        [self.prompt], [self.negative_prompt]
                     )
 
             ### known view
@@ -306,9 +307,14 @@ class GUI:
             images = torch.cat(images, dim=0)
             poses = torch.from_numpy(np.stack(poses, axis=0)).to(self.device)
 
-            # import kiui
-            # print(hor, ver)
-            # kiui.vis.plot_image(images)
+            if self.step % 100 == 0:
+                from PIL import Image
+
+                # save image
+                img = images[0].detach().permute(1, 2, 0).cpu().numpy()
+                img = (img * 255).astype(np.uint8)
+                img = Image.fromarray(img)
+                img.save(f"output/{self.step}.png")
 
             # guidance loss
             if self.enable_sd:
@@ -371,9 +377,9 @@ class GUI:
                     # tuning this for better quality
                     self.renderer.gaussians.densify_and_prune(
                         self.opt.densify_grad_threshold,
-                        min_opacity=0.01,
-                        extent=2,
-                        max_screen_size=0.15,
+                        min_opacity=self.opt.min_opacity,
+                        extent=self.opt.extent,
+                        max_screen_size=self.opt.max_screen_size,
                     )
                     # print number of gaussians
                     print(
