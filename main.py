@@ -249,10 +249,7 @@ class GUI:
                 ver = np.random.randint(min_ver, max_ver)
                 hor = np.random.randint(-180, 180)
                 # add radius after 3000 steps, uniform sampling from [0, 1]
-                if step_ratio > 0.6:
-                    radius = 0.5
-                else:
-                    radius = 0
+                radius = 0 if step_ratio < 0.3 else (0.4 if step_ratio < 0.6 else 0.8)
 
                 vers.append(ver)
                 hors.append(hor)
@@ -314,10 +311,10 @@ class GUI:
             images = torch.cat(images, dim=0)
             poses = torch.from_numpy(np.stack(poses, axis=0)).to(self.device)
 
-            if self.step % 200 == 0:
+            if self.step % 500 == 0:
                 from PIL import Image
 
-                front_pose = orbit_camera(-15, 15, self.opt.radius)
+                front_pose = orbit_camera(-15, 15, self.opt.radius + radius)
                 front_cam = MiniCam(
                     front_pose,
                     512,
@@ -413,12 +410,12 @@ class GUI:
 
         if self.step >= self.opt.density_end_iter:
             # prune every 1000 iters
-            if self.step % 1000 == 0:
+            if self.step % 500 == 0:
                 # min_opacity, extent, max_screen_size
                 self.renderer.gaussians.prune(
                     min_opacity=self.opt.min_opacity,
-                    extent=self.opt.extent,
-                    max_screen_size=self.opt.max_screen_size,
+                    extent=0.5,
+                    max_screen_size=0,
                 )
 
         ender.record()
@@ -1067,6 +1064,10 @@ class GUI:
         # save
         self.save_model(mode="model")
         # self.save_model(mode="geo+tex")
+        # zip the images in output folder, ensure unique name
+        import shutil
+
+        shutil.make_archive(f"{self.prompt}_output", "zip", "output")
 
 
 if __name__ == "__main__":
