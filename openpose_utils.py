@@ -15,38 +15,46 @@ def draw_openpose_human_pose(keypoints, image_shape, K, RT, alpha=0.5):
     # Create image
     image = np.zeros((image_shape[0], image_shape[1], 3), dtype=np.uint8)
 
+    keypoints_num = len(keypoints)
+
+    openpose_colors = []
+    openpose_conn = []
+
     # Openpose colors, one for each keypoint(25)
-    # openpose_colors = [
-    #     (255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0), (170, 255, 0),
-    #     (85, 255, 0), (0, 255, 0), (0, 255, 85), (0, 255, 170), (0, 255, 255),
-    #     (0, 170, 255), (0, 85, 255), (0, 0, 255), (85, 0, 255), (170, 0, 255),
-    #     (255, 0, 255), (255, 0, 170), (255, 0, 85), (255, 0, 0), (255, 85, 0),
-    #     (255, 170, 0), (255, 255, 0), (170, 255, 0), (85, 255, 0), (0, 255, 0)
-    # ]
+    if keypoints_num == 25:
+        openpose_colors = [
+            (255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0), (170, 255, 0),
+            (85, 255, 0), (0, 255, 0), (0, 255, 85), (0, 255, 170), (0, 255, 255),
+            (0, 170, 255), (0, 85, 255), (0, 0, 255), (85, 0, 255), (170, 0, 255),
+            (255, 0, 255), (255, 0, 170), (255, 0, 85), (255, 0, 0), (255, 85, 0),
+            (255, 170, 0), (255, 255, 0), (170, 255, 0), (85, 255, 0), (0, 255, 0)
+        ]
 
-    # openpose_conn = [
-    #     [0, 1], [1, 2], [1, 5], [2, 3], [3, 4], [5, 6], [6, 7],
-    #     [1, 8], [8, 9], [9, 10], [10, 11], [8, 12], [12, 13],
-    #     [13, 14], [0, 15], [0, 16], [15, 17], [16, 18], [11, 24],
-    #     [11, 22], [22, 23], [14, 21], [14, 19], [19, 20]
-    # ]
+        openpose_conn = [
+            [0, 1], [1, 2], [1, 5], [2, 3], [3, 4], [5, 6], [6, 7],
+            [1, 8], [8, 9], [9, 10], [10, 11], [8, 12], [12, 13],
+            [13, 14], [0, 15], [0, 16], [15, 17], [16, 18], [11, 24],
+            [11, 22], [22, 23], [14, 21], [14, 19], [19, 20]
+        ]
+    elif keypoints_num == 18:
+        # color for each keypoint(18)
+        openpose_colors = [
+            (255, 0, 85), (255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0),
+            (170, 255, 0), (85, 255, 0), (0, 255, 0), (255, 0, 0), (0, 255, 85),
+            (0, 255, 170), (0, 255, 255), (0, 170, 255), (0, 85, 255), (0, 0, 255),
+            (255, 0, 170), (170, 0, 255), (255, 0, 255), (85, 0, 255), (0, 0, 255),
+            (0, 0, 255), (0, 0, 255), (0, 255, 255), (0, 255, 255), (0, 255, 255)
+        ]
 
-    # color for each keypoint(18)
-    openpose_colors = [
-        (255, 0, 85), (255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0),
-        (170, 255, 0), (85, 255, 0), (0, 255, 0), (255, 0, 0), (0, 255, 85),
-        (0, 255, 170), (0, 255, 255), (0, 170, 255), (0, 85, 255), (0, 0, 255),
-        (255, 0, 170), (170, 0, 255), (255, 0, 255), (85, 0, 255), (0, 0, 255),
-        (0, 0, 255), (0, 0, 255), (0, 255, 255), (0, 255, 255), (0, 255, 255)
-    ]
-
-    openpose_conn = [
-        [0, 1], [1, 2], [2, 3], [3, 4],
-        [1, 5], [5, 6], [6, 7],
-        [1, 8], [8, 9], [9, 10],
-        [1, 11], [11, 12], [12, 13],
-        [0, 14], [14, 16], [0, 15], [15, 17]
-    ]
+        openpose_conn = [
+            [0, 1], [1, 2], [2, 3], [3, 4],
+            [1, 5], [5, 6], [6, 7],
+            [1, 8], [8, 9], [9, 10],
+            [1, 11], [11, 12], [12, 13],
+            [0, 14], [14, 16], [0, 15], [15, 17]
+        ]
+    else:
+        raise ValueError("Invalid keypoints number")
 
     # Draw keypoints
     for i, keypoint in enumerate(keypoints):
@@ -122,20 +130,20 @@ def mid_and_scale(keypoints):
 
 
 
-def is_back(K, RT) -> bool:
-    """
-    Check if camera is facing back
-    Args:
-        K (numpy array): Camera intrinsic matrix (3, 3)
-        RT (numpy array): Camera extrinsic matrix (3, 4)
-    Returns:
-        bool: True if camera is facing back
-    """
-    # Get camera center
-    C = -np.linalg.inv(RT[:, :3]) @ RT[:, 3]
-    # Get camera forward vector
-    forward = RT[:, 2]
-    # Get camera forward vector in image plane
-    forward = K @ forward
-    # Check if camera is facing back
-    return not (C[2] < 0 and forward[2] < 0)
+# def is_back(K, RT) -> bool:
+#     """
+#     Check if camera is facing back
+#     Args:
+#         K (numpy array): Camera intrinsic matrix (3, 3)
+#         RT (numpy array): Camera extrinsic matrix (3, 4)
+#     Returns:
+#         bool: True if camera is facing back
+#     """
+#     # Get camera center
+#     C = -np.linalg.inv(RT[:, :3]) @ RT[:, 3]
+#     # Get camera forward vector
+#     forward = RT[:, 2]
+#     # Get camera forward vector in image plane
+#     forward = K @ forward
+#     # Check if camera is facing back
+#     return (C[2] < 0 and forward[2] < 0)
