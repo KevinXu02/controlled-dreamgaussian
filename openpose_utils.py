@@ -2,7 +2,27 @@ import cv2
 import numpy as np
 
 
-def draw_openpose_human_pose(keypoints, image_shape, K, RT, alpha=0.5):
+def mid_and_scale(keypoints):
+    """
+    Get middle point and scale of human pose
+    Args:
+        keypoints (numpy array): Openpose keypoints (25, 3) (index, x, y, z)
+    Returns:
+        normalized_keypoints (numpy array): Normalized keypoints (25, 3) (index, x, y, z)
+    """
+    # Get middle point
+    middle_point = np.mean(keypoints, axis=0)
+
+    # Get scale
+    scale = np.max(np.linalg.norm(keypoints[:, :2] - middle_point[:2], axis=1)) * 1.6
+
+    # Normalize keypoints
+    offset = np.array([0, 0.1, 0])
+    normalized_keypoints = (keypoints - middle_point) / scale + offset
+    return normalized_keypoints
+
+
+def draw_openpose_human_pose(K, RT, keypoints=None, image_shape=(512, 512), alpha=0.5):
     """
     Draw Openpose human pose on image
     Args:
@@ -14,6 +34,32 @@ def draw_openpose_human_pose(keypoints, image_shape, K, RT, alpha=0.5):
     """
     # Create image
     image = np.zeros((image_shape[0], image_shape[1], 3), dtype=np.uint8)
+    T_pose_keypoints = np.array(
+        [
+            [0, 158, 14],
+            [0, 138, 0],
+            [-17, 138, 0],
+            [-17, 113, 0],
+            [-17, 88, 0],
+            [17, 138, 0],
+            [17, 113, 0],
+            [17, 88, 0],
+            [-10, 92, 0],
+            [-10, 52, 0],
+            [-10, 16, 0],
+            [10, 92, 0],
+            [10, 52, 0],
+            [10, 16, 0],
+            [-3, 161, 11],
+            [3, 161, 11],
+            [-7, 158, 3],
+            [7, 158, 3],
+        ]
+    )
+
+    normalized_keypoints = mid_and_scale(T_pose_keypoints)
+    if keypoints == None:
+        keypoints = normalized_keypoints
 
     # Openpose colors, one for each keypoint(25)
     # openpose_colors = [
@@ -33,19 +79,51 @@ def draw_openpose_human_pose(keypoints, image_shape, K, RT, alpha=0.5):
 
     # color for each keypoint(18)
     openpose_colors = [
-        (255, 0, 85), (255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0),
-        (170, 255, 0), (85, 255, 0), (0, 255, 0), (255, 0, 0), (0, 255, 85),
-        (0, 255, 170), (0, 255, 255), (0, 170, 255), (0, 85, 255), (0, 0, 255),
-        (255, 0, 170), (170, 0, 255), (255, 0, 255), (85, 0, 255), (0, 0, 255),
-        (0, 0, 255), (0, 0, 255), (0, 255, 255), (0, 255, 255), (0, 255, 255)
+        (255, 0, 85),
+        (255, 0, 0),
+        (255, 85, 0),
+        (255, 170, 0),
+        (255, 255, 0),
+        (170, 255, 0),
+        (85, 255, 0),
+        (0, 255, 0),
+        (255, 0, 0),
+        (0, 255, 85),
+        (0, 255, 170),
+        (0, 255, 255),
+        (0, 170, 255),
+        (0, 85, 255),
+        (0, 0, 255),
+        (255, 0, 170),
+        (170, 0, 255),
+        (255, 0, 255),
+        (85, 0, 255),
+        (0, 0, 255),
+        (0, 0, 255),
+        (0, 0, 255),
+        (0, 255, 255),
+        (0, 255, 255),
+        (0, 255, 255),
     ]
 
     openpose_conn = [
-        [0, 1], [1, 2], [2, 3], [3, 4],
-        [1, 5], [5, 6], [6, 7],
-        [1, 8], [8, 9], [9, 10],
-        [1, 11], [11, 12], [12, 13],
-        [0, 14], [14, 16], [0, 15], [15, 17]
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 4],
+        [1, 5],
+        [5, 6],
+        [6, 7],
+        [1, 8],
+        [8, 9],
+        [9, 10],
+        [1, 11],
+        [11, 12],
+        [12, 13],
+        [0, 14],
+        [14, 16],
+        [0, 15],
+        [15, 17],
     ]
 
     # Draw keypoints
@@ -99,27 +177,6 @@ def draw_openpose_human_pose(keypoints, image_shape, K, RT, alpha=0.5):
         image = cv2.addWeighted(image, 1 - alpha, overlay, alpha, 0)
 
     return image
-
-
-def mid_and_scale(keypoints):
-    """
-    Get middle point and scale of human pose
-    Args:
-        keypoints (numpy array): Openpose keypoints (25, 3) (index, x, y, z)
-    Returns:
-        normalized_keypoints (numpy array): Normalized keypoints (25, 3) (index, x, y, z)
-    """
-    # Get middle point
-    middle_point = np.mean(keypoints, axis=0)
-
-    # Get scale
-    scale = np.max(np.linalg.norm(keypoints[:, :2] - middle_point[:2], axis=1)) * 1.6
-
-    # Normalize keypoints
-    offset = np.array([0, 0.1, 0])
-    normalized_keypoints = (keypoints - middle_point) / scale + offset
-    return normalized_keypoints
-
 
 
 def is_back(K, RT) -> bool:
