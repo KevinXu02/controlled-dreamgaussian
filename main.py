@@ -15,10 +15,13 @@ from gs_renderer import Renderer, MiniCam
 
 from grid_put import mipmap_linear_grid_put_2d
 from mesh import Mesh, safe_normalize
+import wandb
 
 
 class GUI:
     def __init__(self, opt):
+        # init wandb
+
         self.opt = opt  # shared with the trainer's opt to support in-place modification of rendering parameters.
         self.gui = opt.gui  # enable gui
         self.W = opt.W
@@ -239,13 +242,17 @@ class GUI:
             vers, hors, radii = [], [], []
             # avoid too large elevation (> 80 or < -80), and make sure it always cover [-30, 30]
             min_ver = max(min(-30, -30 - self.opt.elevation), -75 - self.opt.elevation)
-            max_ver = min(max(30, 30 - self.opt.elevation), 75 - self.opt.elevation)
+            max_ver = min(max(30, 30 - self.opt.elevation), 45 - self.opt.elevation)
 
             for _ in range(self.opt.batch_size):
                 # render random view
                 ver = np.random.randint(min_ver, max_ver)
                 hor = np.random.randint(-180, 180)
-                radius = 0
+                # add radius after 3000 steps, uniform sampling from [0, 1]
+                if step_ratio > 0.6:
+                    radius = 0.5
+                else:
+                    radius = 0
 
                 vers.append(ver)
                 hors.append(hor)
@@ -307,11 +314,24 @@ class GUI:
             images = torch.cat(images, dim=0)
             poses = torch.from_numpy(np.stack(poses, axis=0)).to(self.device)
 
-            if self.step % 100 == 0:
+            if self.step % 200 == 0:
                 from PIL import Image
 
+                front_pose = orbit_camera(-15, 15, self.opt.radius)
+                front_cam = MiniCam(
+                    front_pose,
+                    512,
+                    512,
+                    self.cam.fovy,
+                    self.cam.fovx,
+                    self.cam.near,
+                    self.cam.far,
+                )
+                bg_color = torch.tensor([1, 1, 1], dtype=torch.float32, device="cuda")
+                front_out = self.renderer.render(front_cam, bg_color=bg_color)
+                img = front_out["image"].unsqueeze(0)[0]
                 # save image
-                img = images[0].detach().permute(1, 2, 0).cpu().numpy()
+                img = img.detach().permute(1, 2, 0).cpu().numpy()
                 img = (img * 255).astype(np.uint8)
                 img = Image.fromarray(img)
                 img.save(f"output/{self.step}.png")
@@ -348,7 +368,9 @@ class GUI:
                         images, vers, hors, radii, step_ratio
                     )
                 )
-
+            # logging loss and render_resuluion
+            wandb.log({"loss": loss.item()})
+            wandb.log({"render_resolution": render_resolution})
             # optimize step
             loss.backward()
             self.optimizer.step()
@@ -388,6 +410,16 @@ class GUI:
 
                 if self.step % self.opt.opacity_reset_interval == 0:
                     self.renderer.gaussians.reset_opacity()
+
+        if self.step >= self.opt.density_end_iter:
+            # prune every 1000 iters
+            if self.step % 1000 == 0:
+                # min_opacity, extent, max_screen_size
+                self.renderer.gaussians.prune(
+                    min_opacity=self.opt.min_opacity,
+                    extent=self.opt.extent,
+                    max_screen_size=self.opt.max_screen_size,
+                )
 
         ender.record()
         torch.cuda.synchronize()
@@ -1020,6 +1052,8 @@ class GUI:
 
     # no gui mode
     def train(self, iters=500):
+        wandb.init(project="Gaussian3D")
+
         if iters > 0:
             self.prepare_train()
             for iter in tqdm.trange(iters):
