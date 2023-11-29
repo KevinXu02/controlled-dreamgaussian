@@ -56,6 +56,6 @@ def render_orbit_imgs(load_path):
 
 # main
 if __name__ == "__main__":
-    load_path = "logs\darthvader_5_model.ply"
+    load_path = "logs\darthvader_sd_neg_model.ply"
     render_orbit_imgs(load_path)
-    grid_image = image_utils.resize_and_fit_images("renders", "renders/gird.png")
+    grid_image = image_utils.resize_and_fit_images("renders", "renders/gird_sd_neg.png")
