@@ -34,8 +34,8 @@ class StableDiffusion(nn.Module):
         vram_O=False,
         sd_version="2.1",
         hf_key=None,
-        load_from_local=True,
-        local_path="./pretrained_models/DarthVader.ckpt",
+        load_from_local=False,
+        local_path="pretrained_models/v1-5-pruned-emaonly.ckpt",
         t_range=[0.02, 0.98],
     ):
         super().__init__()
