@@ -1,6 +1,6 @@
 # ControlledDreamGaussian
 
-This repository contains a unofficial implementation for [DreamGaussian: Generative Gaussian Splatting for Efficient 3D Content Creation](https://arxiv.org/abs/2309.16653). Adds support for openpose ,more render methods and integrates ControlNet into the pipeline.
+This repository contains a unofficial implementation for [DreamGaussian: Generative Gaussian Splatting for Efficient 3D Content Creation](https://arxiv.org/abs/2309.16653). Adding support for loss tracking, openpose ,more render methods and integrates ControlNet into the pipeline.
 
 ## Install
 
