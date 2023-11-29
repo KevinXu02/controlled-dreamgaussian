@@ -26,7 +26,7 @@ lambda_zero123: 0
 # training batch size per iter
 batch_size: 1
 # training iterations for stage 1
-iters: 2500
+iters: 5000
 # training iterations for stage 2
 iters_refine: 50
 # training camera radius
@@ -50,21 +50,24 @@ W: 800
 ### Gaussian splatting
 num_pts: 5000
 sh_degree: 0
-position_lr_init: 0.001
-position_lr_final: 0.00002
+position_lr_init: 0.005
+position_lr_final: 0.00003
 position_lr_delay_mult: 0.02
-position_lr_max_steps: 500
+position_lr_max_steps: 1000
 feature_lr: 0.01
-opacity_lr: 0.05
+opacity_lr: 0.005
 scaling_lr: 0.005
 rotation_lr: 0.005
 percent_dense: 0.01
 density_start_iter: 0
-density_end_iter: 3000
-densification_interval: 75
-opacity_reset_interval: 700
+density_end_iter: 1500
+densification_interval: 250
+opacity_reset_interval: 500000
 densify_grad_threshold: 0.01
 
+min_opacity: 0.1
+extent: 1.5
+max_screen_size: 1
 ### Textured Mesh
 geom_lr: 0.0001
 texture_lr: 0.2

@@ -26,70 +26,14 @@ pip install git+https://github.com/ashawkey/kiuikit
 ```
 
 ## Usage
-
-Image-to-3D:
-
-```bash
-### preprocess
-# background removal and recentering, save rgba at 256x256
-python process.py data/name.jpg
-
-# save at a larger resolution
-python process.py data/name.jpg --size 512
-
-# process all jpg images under a dir
-python process.py data
-
-### training gaussian stage
-# train 500 iters (~1min) and export ckpt & coarse_mesh to logs
-python main.py --config configs/image.yaml input=data/name_rgba.png save_path=name
-
-# gui mode (supports visualizing training)
-python main.py --config configs/image.yaml input=data/name_rgba.png save_path=name gui=True
-
-# load and visualize a saved ckpt
-python main.py --config configs/image.yaml load=logs/name_model.ply gui=True
-
-# use an estimated elevation angle if image is not front-view (e.g., common looking-down image can use -30)
-python main.py --config configs/image.yaml input=data/name_rgba.png save_path=name elevation=-30
-
-### training mesh stage
-# auto load coarse_mesh and refine 50 iters (~1min), export fine_mesh to logs
-python main2.py --config configs/image.yaml input=data/name_rgba.png save_path=name
-
-# specify coarse mesh path explicity
-python main2.py --config configs/image.yaml input=data/name_rgba.png save_path=name mesh=logs/name_mesh.obj
-
-# gui mode
-python main2.py --config configs/image.yaml input=data/name_rgba.png save_path=name gui=True
-
-# export glb instead of obj
-python main2.py --config configs/image.yaml input=data/name_rgba.png save_path=name mesh_format=glb
-
-### visualization
-# gui for visualizing mesh
-python -m kiui.render logs/name.obj
-
-# save 360 degree video of mesh (can run without gui)
-python -m kiui.render logs/name.obj --save_video name.mp4 --wogui
-
-# save 8 view images of mesh (can run without gui)
-python -m kiui.render logs/name.obj --save images/name/ --wogui
-
-### evaluation of CLIP-similarity
-python -m kiui.cli.clip_sim data/name_rgba.png logs/name.obj
-```
-
-Please check `./configs/image.yaml` for more options.
-
 Text-to-3D:
 
 ```bash
 ### training gaussian stage
 python main.py --config configs/text.yaml prompt="a photo of an icecream" save_path=icecream
 
-### training mesh stage
-python main2.py --config configs/text.yaml prompt="a photo of an icecream" save_path=icecream
+### loading gaussian stage model
+python main.py --config configs/text.yaml load={path_to_icecream_model}
 ```
 
 Please check `./configs/text.yaml` for more options.
@@ -100,8 +44,8 @@ Text-to-3D (MVDream):
 ### training gaussian stage
 python main.py --config configs/text_mv.yaml prompt="a plush toy of a corgi nurse" save_path=corgi_nurse
 
-### training mesh stage
-python main2.py --config configs/text_mv.yaml prompt="a plush toy of a corgi nurse" save_path=corgi_nurse
+### loading gaussian stage model
+python main.py --config configs/text_mv.yaml load={path_to_corgi_nurse_model}
 ```
 
 Please check `./configs/text_mv.yaml` for more options.

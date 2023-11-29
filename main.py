@@ -4,6 +4,7 @@ import time
 import tqdm
 import numpy as np
 import dearpygui.dearpygui as dpg
+from configs.train_config import GuideConfig
 
 import torch
 import torch.nn.functional as F
@@ -16,6 +17,7 @@ from gs_renderer import Renderer, MiniCam
 from grid_put import mipmap_linear_grid_put_2d
 from mesh import Mesh, safe_normalize
 import wandb
+from openpose_utils import *
 
 
 class GUI:
@@ -133,9 +135,11 @@ class GUI:
         if self.guidance_sd is None and self.enable_sd:
             if self.opt.sdcn:
                 print(f"[INFO] loading SDCN...")
-                from guidance.sdcn_utils import StableDiffusionControlNet
+                from guidance.sdcn_utils import ControllableScoreDistillationSampling
 
-                self.guidance_sd = StableDiffusionControlNet(self.device)
+                self.guidance_sd = ControllableScoreDistillationSampling(
+                    self.device, guide_cfg=GuideConfig()
+                )
                 print(f"[INFO] loaded SDCN!")
 
             elif self.opt.mvdream:
@@ -148,7 +152,11 @@ class GUI:
                 print(f"[INFO] loading SD...")
                 from guidance.sd_utils import StableDiffusion
 
-                self.guidance_sd = StableDiffusion(self.device)
+                self.guidance_sd = StableDiffusion(
+                    self.device,
+                    load_from_local=opt.load_from_local,
+                    local_path=opt.local_path,
+                )
                 print(f"[INFO] loaded SD!")
 
         if self.guidance_zero123 is None and self.enable_zero123:
@@ -345,8 +353,30 @@ class GUI:
                         self.cam.near,
                         self.cam.far,
                     )
-                    loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
-                        images, pose, cur_cam, step_ratio, hors=hors
+                    w2c = np.linalg.inv(pose)
+                    w2c[1:3, :3] *= -1
+                    w2c[:3, 3] *= -1
+                    K = cur_cam.K()
+                    RT = w2c[:3, :]
+                    # TODO:Base on the camera to generate the openpose images, blender convention!!!
+                    openpose_image = draw_openpose_human_pose_official(
+                        K,
+                        RT,
+                    )
+                    from PIL import Image
+
+                    openpose_image = Image.fromarray(openpose_image)
+                    pred_rgb_512 = F.interpolate(
+                        images, (512, 512), mode="bilinear", align_corners=False
+                    )
+                    loss = (
+                        self.opt.lambda_sd
+                        * self.guidance_sd.estimate(
+                            inputs=pred_rgb_512,
+                            train_step=self.step,
+                            max_iteration=self.opt.iters,
+                            cond_inputs=openpose_image,
+                        )["gradients"]
                     )
                 elif self.opt.mvdream:
                     loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
@@ -1049,7 +1079,7 @@ class GUI:
 
     # no gui mode
     def train(self, iters=500):
-        wandb.init(project="Gaussian3D")
+        # wandb.init(project="Gaussian3D")
 
         if iters > 0:
             self.prepare_train()
