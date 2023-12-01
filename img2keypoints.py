@@ -51,10 +51,12 @@ def run_body_mocap(body_bbox_detector, body_mocap, visualizer, image_path, out_d
     pred_output_list = body_mocap.regress(img_original_bgr, body_bbox_list)
     assert len(body_bbox_list) == len(pred_output_list)
 
+
     # extract mesh for rendering (vertices in image space and faces) from pred_output_list
     pred_mesh_list = demo_utils.extract_mesh_from_output(pred_output_list)
     pred_mesh_list[0]['vertices'] = pred_mesh_list[0]['vertices'] - np.mean(pred_mesh_list[0]['vertices'], axis=0,
                                                                             keepdims=True)
+
 
     if out_dir:
         gnu.save_mesh_to_obj(os.path.join(out_dir, 'mesh.obj'), pred_mesh_list[0]['vertices'],
@@ -63,7 +65,7 @@ def run_body_mocap(body_bbox_detector, body_mocap, visualizer, image_path, out_d
     timer.toc(bPrint=True, title="Time")
 
     # return openpose body25 keypoints
-    return pred_mesh_list[0]['vertices']
+    return pred_output_list[0]['pred_joints_3d'][:25]
 
 
 def image2keypoint(image: np.ndarray, out_dir=None):
@@ -76,7 +78,6 @@ def image2keypoint(image: np.ndarray, out_dir=None):
     Returns:
         np.array, shape=(25, 3), body25 keypoints of centered mesh
     """
-    args = DemoOptions().parse()
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     assert torch.cuda.is_available(), "Current version only supports GPU"
@@ -90,17 +91,9 @@ def image2keypoint(image: np.ndarray, out_dir=None):
 
     body_mocap = BodyMocap(checkpoint_path, "./frankmocap/extra_data/smpl/", device, use_smplx)
 
-    # Set Visualizer
-
-    # from frankmocap.renderer.visualizer import Visualizer
-    # visualizer = Visualizer('opengl')
-
     smpl = run_body_mocap(body_bbox_detector, body_mocap, None, image, out_dir)
-    # center mesh
-    body25_reg = pkl.load(
-        open(('frankmocap/extra_data/smpl/body25_regressor.pkl'), 'rb'), encoding="latin1").T
-    body = sparse.csr_matrix.dot(body25_reg, smpl)
-    return body
+
+    return smpl
 
 
 if __name__ == '__main__':
@@ -138,7 +131,7 @@ if __name__ == '__main__':
     # K = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
     print(K)
     print(RT)
-    result = draw_openpose_human_pose_official(K, RT, normalized_keypoints, (512, 512), )
+    result = draw_openpose_human_pose( normalized_keypoints, (512, 512), K, RT)
     # up-down flip
     result = cv2.flip(result, 0)
     # cv2.imwrite("T_pose.jpg", cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
