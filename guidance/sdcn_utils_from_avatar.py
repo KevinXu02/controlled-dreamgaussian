@@ -96,7 +96,6 @@ class ControlNet(nn.Module):
         self.pipe = StableDiffusionControlNetPipeline.from_pretrained(
             "runwayml/stable-diffusion-v1-5",
             controlnet=controlnet,
-            safety_checker=None,
             torch_dtype=torch.float16 if fp16 else torch.float32,
         ).to(self.device)
 
@@ -118,9 +117,9 @@ class ControlNet(nn.Module):
             do_normalize=False,
         )
 
-        self.scheduler = DDIMScheduler.from_config(
-            pipe.scheduler.config, torch_dtype=self.dtype
-        )
+        # self.scheduler = DDIMScheduler.from_config(
+        #     pipe.scheduler.config, torch_dtype=self.dtype
+        # )
         del self.pipe
         self.num_train_timesteps = self.scheduler.config.num_train_timesteps
         self.min_step = int(self.num_train_timesteps * t_range[0])
@@ -157,7 +156,6 @@ class ControlNet(nn.Module):
         pred_rgb,  # TODO:This can be [B,C,H,W] or [C,H*N_1,W*N_2], modify the code accordingly
         camera,  # TODO: [B, 4, 4], modify the code accordingly
         cur_cam,
-        cond_img=None,
         step_ratio=None,
         guidance_scale=10,
         as_latent=False,
@@ -201,6 +199,18 @@ class ControlNet(nn.Module):
         # flip_yz = torch.tensor([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]).unsqueeze(0)
         # camera = torch.matmul(flip_yz.to(camera), camera)
 
+        w2c = np.linalg.inv(camera)
+        w2c[1:3, :3] *= -1
+        w2c[:3, 3] *= -1
+
+        K = cur_cam.K()
+        RT = w2c[:3, :]
+        # TODO:Base on the camera to generate the openpose images, blender convention!!!
+
+        openpose_image = draw_openpose_human_pose(
+            K,
+            RT,
+        )
         # predict the noise residual with unet, NO grad!
         with torch.no_grad():
             if step_ratio is not None:
@@ -252,8 +262,10 @@ class ControlNet(nn.Module):
                     + [self.embeddings["neg"].expand(batch_size, -1, -1)]
                 )
 
+            openpose_image = Image.fromarray(openpose_image)
+
             image = self.prepare_image(
-                image=cond_img,
+                image=openpose_image,
                 width=width,
                 height=height,
                 batch_size=batch_size * 1,
@@ -446,6 +458,12 @@ class ControlNet(nn.Module):
 
         return imgs
 
+    def encode_images(self, images):
+        images = 2 * images - 1  # [B, 3, H, W]
+        posterior = self.vae.encode(images).latent_dist
+        latents = posterior.sample() * 0.18215
+        return latents
+
     def encode_imgs(self, imgs):
         # imgs: [B, 3, H, W]
 
@@ -493,6 +511,215 @@ class ControlNet(nn.Module):
         imgs = (imgs * 255).round().astype("uint8")
 
         return imgs
+
+
+class ControllableScoreDistillationSampling(ControlNet):
+    def __init__(
+        self, device, model_name="v1.5", weight_mode="sjc", guide_cfg=None, **kwargs
+    ):
+        super().__init__(device, **kwargs)
+
+        self.cfg = guide_cfg
+        self.guidance_scale = 7.5
+        self.tp_scheduler = TimePrioritizedScheduler(
+            guide_cfg,
+            scheduler=self.scheduler,
+            device=device,
+            num_train_timesteps=self.num_train_timesteps,
+        )
+        self.add_noise = self.tp_scheduler.add_noise
+        self.get_timestep = self.tp_scheduler.get_timestep
+        self.alphas = self.tp_scheduler.alphas
+        self.betas = self.tp_scheduler.betas
+        self.alphas_cumprod = self.tp_scheduler.alphas_cumprod
+
+        self.weight_mode = weight_mode
+        self.guidance_adjust = guide_cfg.guidance_adjust
+
+    def get_guidance_scale(self, train_step, max_iteration):
+        if self.guidance_adjust == "constant":
+            guidance_scale = self.guidance_scale
+        elif self.guidance_adjust == "uniform":
+            guidance_scale = np.random.uniform(7.5, self.guidance_scale)
+        elif self.guidance_adjust == "linear":
+            guidance_delta = (self.guidance_scale - 7.5) / (max_iteration - 1)
+            guidance_scale = self.guidance_scale - (train_step - 1) * guidance_delta
+        elif self.guidance_adjust == "linear_rev":
+            guidance_delta = (self.guidance_scale - 7.5) / (max_iteration - 1)
+            guidance_scale = 7.5 + (train_step - 1) * guidance_delta
+        else:
+            raise NotImplementedError
+        return guidance_scale
+
+    def calc_gradients(self, noise_residual, noise_pred, t):
+        # Weight
+        if self.weight_mode != "sjc-v2":
+            if self.weight_mode in ("dreamfusion", "stable-dreamfusion"):
+                w = 1 - self.alphas_cumprod[t]
+            elif self.weight_mode == "latent-nerf":
+                w = (1 - self.alphas_cumprod[t]) * torch.sqrt(self.alphas_cumprod[t])
+            elif self.weight_mode == "sjc":
+                w = torch.ones_like(self.alphas_cumprod[t])
+            else:
+                raise NotImplementedError
+            gradients = w.reshape(-1, 1, 1, 1) * noise_residual
+        else:
+            gradients = noise_pred
+        # Reg
+        if self.cfg.grad_clip:
+            gradients = gradients.clamp(-1, 1)
+        if self.cfg.grad_norm:
+            gradients = torch.nn.functional.normalize(
+                noise_residual, p=2, dim=(1, 2, 3)
+            )
+        return gradients
+
+    def estimate(
+        self,
+        inputs,
+        train_step,
+        max_iteration,
+        cond_inputs=None,
+        controlnet_conditioning_scale=1.0,
+        cross_attention_kwargs=None,
+        backward=False,
+    ):
+        """
+        text_embeddings: [2N, 77, 768]
+        inputs: [N, 4, 64, 64]
+        cond_inputs: conditional preprocessed images
+        """
+        # make sure inputs shape is [N, 4, 64, 64]
+        batch_size = inputs.size(0)
+        text_embeddings = [
+            self.embeddings["pos"].expand(batch_size, -1, -1),
+            self.embeddings["neg"].expand(batch_size, -1, -1),
+        ]
+
+        if isinstance(self.controlnet, MultiControlNetModel) and isinstance(
+            controlnet_conditioning_scale, float
+        ):
+            controlnet_conditioning_scale = [controlnet_conditioning_scale] * len(
+                self.controlnet.nets
+            )
+        # controlnet_conditioning_scale = [item / len(controlnet_conditioning_scale) for item in controlnet_conditioning_scale]
+
+        if cond_inputs is None:
+            # TODO: write logic processing inputs with different processors
+            # Here we can add logic to handle different types of inputs
+            # For example, if inputs are images, we can preprocess them using a specific function
+            # If inputs are text, we can tokenize them and pass them through an embedding layer
+            # For now, we will raise a NotImplementedError to remind ourselves to implement this logic
+            raise NotImplementedError(
+                "TODO: write logic processing inputs with different processors"
+            )
+
+        # prepare images
+        if isinstance(self.controlnet, ControlNetModel):
+            cond_inputs = self.prepare_image(
+                cond_inputs,
+                512,
+                512,
+                batch_size=batch_size,
+                num_images_per_prompt=1,
+                device=self.device,
+                dtype=inputs.dtype,
+            )
+        elif isinstance(self.controlnet, MultiControlNetModel):
+            cond_inputs_temp = []
+            for cond_input in cond_inputs:
+                cond_input = self.prepare_image(
+                    cond_input,
+                    512,
+                    512,
+                    batch_size=batch_size,
+                    num_images_per_prompt=1,
+                    device=self.device,
+                    dtype=inputs.dtype,
+                )
+                cond_inputs_temp.append(cond_input)
+            cond_inputs = cond_inputs_temp
+
+        # Adaptive guidance scale
+        guidance_scale = self.get_guidance_scale(train_step, max_iteration)
+        do_classifier_free_guidance = guidance_scale > 1.0
+
+        # Adaptive timestep
+        t = self.get_timestep(batch_size, train_step, max_iteration)
+
+        # Interp to 512x512 to be fed into vae.
+
+        # latents = F.interpolate(latents, (64, 64), mode='bilinear', align_corners=False)
+        pred_rgb_512 = F.interpolate(
+            inputs, (512, 512), mode="bilinear", align_corners=False
+        )
+        print(pred_rgb_512.shape)
+        latents = self.encode_imgs(pred_rgb_512)
+
+        # Encode image into latents with vae, requires grad!
+        # Predict the noise residual with unet, no grad!
+        with torch.no_grad():
+            # 1. Add Noise
+            noise = torch.randn_like(latents)
+            latents_noisy = self.add_noise(latents, noise, t)
+
+            # 2. Expand the latents if we are doing classifier free guidance
+            latent_model_input = (
+                torch.cat([latents_noisy] * 2)
+                if do_classifier_free_guidance
+                else latents_noisy
+            )
+            latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+
+            down_block_res_samples, mid_block_res_sample = self.controlnet(
+                latent_model_input,
+                t,
+                encoder_hidden_states=text_embeddings,
+                controlnet_cond=cond_inputs,
+                conditioning_scale=controlnet_conditioning_scale,
+                return_dict=False,
+            )
+
+            # predict the noise residual
+            noise_pred = self.unet(
+                latent_model_input,
+                t,
+                encoder_hidden_states=text_embeddings,
+                cross_attention_kwargs=cross_attention_kwargs,
+                down_block_additional_residuals=down_block_res_samples,
+                mid_block_additional_residual=mid_block_res_sample,
+            ).sample
+
+            # perform guidance
+            if do_classifier_free_guidance:
+                noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                noise_pred = noise_pred_uncond + guidance_scale * (
+                    noise_pred_text - noise_pred_uncond
+                )
+
+            # 4. Noise Residual
+            noise_residual = noise_pred - noise
+            gradients = self.calc_gradients(noise_residual, noise_pred, t)
+
+            # 5. Denoise (Optional)
+            alpha_t = self.alphas[t]
+            beta_t = self.betas[t]
+            alpha_comp_t = self.alphas_cumprod[t]
+            latents_denoise = (
+                latents_noisy - noise_pred * beta_t / torch.sqrt(1 - alpha_comp_t)
+            ) / torch.sqrt(alpha_t)
+
+        # Manually backward, since we omitted an item in grad and cannot simply autodiff.
+        if backward:
+            latents.backward(gradient=gradients, retain_graph=True)
+
+        return {
+            "latents": latents,
+            "latents_denoise": latents_denoise,
+            "gradients": gradients,
+            "noise_residual": noise_residual,
+            "t": t,
+        }
 
 
 if __name__ == "__main__":

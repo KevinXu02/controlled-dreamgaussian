@@ -135,7 +135,7 @@ class GUI:
         if self.guidance_sd is None and self.enable_sd:
             if self.opt.sdcn:
                 print(f"[INFO] loading SDCN...")
-                from guidance.sdcn_utils import ControllableScoreDistillationSampling
+                from guidance.sdcn_utils_from_avatar import ControllableScoreDistillationSampling
 
                 self.guidance_sd = ControllableScoreDistillationSampling(
                     self.device, guide_cfg=GuideConfig()
