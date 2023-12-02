@@ -325,7 +325,7 @@ class Trainer:
                     K = cur_cam.K()
                     RT = w2c[:3, :]
                     # TODO:Base on the camera to generate the openpose images, blender convention!!!
-                    openpose_image = draw_openpose_human_pose_official(
+                    openpose_image = draw_openpose_human_pose(
                         K,
                         RT,
                     )

@@ -5,7 +5,7 @@ This repository contains a unofficial implementation for [DreamGaussian: Generat
 ## TODO
 - [x] Debugging ControlNet
 - [x] Add support for LoRA
-- [x] Hyperparameter tuning (gsgen/gspalt codebases may help)
+- [zms, ] Hyperparameter tuning (gsgen/gspalt codebases may help)
 - [x] Run more tests
 
 Kevin:

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-def draw_openpose_human_pose(keypoints, image_shape, K, RT, alpha=0.5, is_back=False):
+def draw_openpose_human_pose(K, RT, keypoints=None, image_shape=(512, 512), alpha=0.5, is_back=False):
     """
     Draw Openpose human pose on image
     Args:
