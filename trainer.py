@@ -324,10 +324,37 @@ class Trainer:
                     w2c[:3, 3] *= -1
                     K = cur_cam.K()
                     RT = w2c[:3, :]
+
+                    T_pose_keypoints = np.array(
+                        [
+                            [0, 158, 14],
+                            [0, 138, 0],
+                            [-17, 138, 0],
+                            [-17, 113, 0],
+                            [-17, 88, 0],
+                            [17, 138, 0],
+                            [17, 113, 0],
+                            [17, 88, 0],
+                            [-10, 92, 0],
+                            [-10, 52, 0],
+                            [-10, 16, 0],
+                            [10, 92, 0],
+                            [10, 52, 0],
+                            [10, 16, 0],
+                            [-3, 161, 11],
+                            [3, 161, 11],
+                            [-7, 158, 3],
+                            [7, 158, 3],
+                        ]
+                    )
+
+                    normalized_keypoints = mid_and_scale(T_pose_keypoints)
+
                     # TODO:Base on the camera to generate the openpose images, blender convention!!!
                     openpose_image = draw_openpose_human_pose(
                         K,
                         RT,
+                        keypoints=normalized_keypoints,
                     )
                     from PIL import Image
 
