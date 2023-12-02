@@ -5,12 +5,14 @@ This repository contains a unofficial implementation for [DreamGaussian: Generat
 ## TODO
 - [x] Debugging ControlNet
 - [x] Add support for LoRA
-- [x] Add support for save/load checkpoints
-- [x] Add support for sd-turbo
 - [x] Hyperparameter tuning (gsgen/gspalt codebases may help)
 - [x] Run more tests
+
+Kevin:
 - [x] Add more logging controls in config
 - [x] Fully separate training and visualization
+- [x] Add support for sd-turbo
+- [x] Add support for save/load checkpoints
 
 ## IMPORTANT!!!
 Please look at ./configs for the most up-to-date config options. Please add new options to the config files if needed.
