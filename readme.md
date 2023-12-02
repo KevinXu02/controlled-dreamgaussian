@@ -2,8 +2,23 @@
 
 This repository contains a unofficial implementation for [DreamGaussian: Generative Gaussian Splatting for Efficient 3D Content Creation](https://arxiv.org/abs/2309.16653). Adding support for loss tracking, openpose ,more render methods and integrates ControlNet into the pipeline.
 
+## TODO
+- [x] Debugging ControlNet
+- [x] Add support for LoRA
+- [x] Add support for save/load checkpoints
+- [x] Add support for sd-turbo
+- [x] Hyperparameter tuning (gsgen/gspalt codebases may help)
+- [x] Run more tests
+- [x] Add more logging controls in config
+- [x] Fully separate training and visualization
+
+## IMPORTANT!!!
+Please look at ./configs for the most up-to-date config options. Please add new options to the config files if needed.
+
 ## Install
 
+conda environment:
+python 3.8.18
 ```bash
 conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=11.8 -c pytorch -c nvidia
 
@@ -18,9 +33,6 @@ pip install ./diff-gaussian-rasterization
 # simple-knn
 pip install ./simple-knn
 
-# nvdiffrast 
-# pip install git+https://github.com/NVlabs/nvdiffrast/
-
 # kiuikit
 pip install git+https://github.com/ashawkey/kiuikit
 ```
@@ -30,9 +42,9 @@ Text-to-3D:
 
 ```bash
 ### training gaussian stage
-python main.py --config configs/text.yaml prompt="a photo of an icecream" save_path=icecream
+python trainer.py --config configs/text.yaml prompt="a photo of an icecream" save_path=icecream
 
-### loading gaussian stage model
+### loading and visualize gaussian stage model
 python main.py --config configs/text.yaml load={path_to_icecream_model}
 ```
 
@@ -51,17 +63,14 @@ python main.py --config configs/text_mv.yaml load={path_to_corgi_nurse_model}
 Please check `./configs/text_mv.yaml` for more options.
 
 Helper scripts:
+    
+    ```bash
+    # visualize the gaussian splatting results
+    run orbit_renderer.py
+    
+    ```
 
-```bash
-# run all image samples (*_rgba.png) in ./data
-python scripts/runall.py --dir ./data --gpu 0
-
-# run all text samples (hardcoded in runall_sd.py)
-python scripts/runall_sd.py --gpu 0
-
-# export all ./logs/*.obj to mp4 in ./videos
-python scripts/convert_obj_to_video.py --dir ./logs
-```
+    ```bash
 
 Gradio Demo:
 
