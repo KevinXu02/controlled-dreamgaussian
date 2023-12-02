@@ -14,8 +14,7 @@ from diff_gaussian_rasterization import (
 from simple_knn._C import distCUDA2
 
 from sh_utils import eval_sh, SH2RGB, RGB2SH
-from mesh import Mesh
-from mesh_utils import decimate_mesh, clean_mesh
+
 
 import kiui
 

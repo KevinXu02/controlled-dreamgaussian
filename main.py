@@ -15,7 +15,6 @@ from cam_utils import orbit_camera, OrbitCamera
 from gs_renderer import Renderer, MiniCam
 
 from grid_put import mipmap_linear_grid_put_2d
-from mesh import Mesh, safe_normalize
 import wandb
 from openpose_utils import *
 
@@ -135,7 +134,9 @@ class GUI:
         if self.guidance_sd is None and self.enable_sd:
             if self.opt.sdcn:
                 print(f"[INFO] loading SDCN...")
-                from guidance.sdcn_utils_from_avatar import ControllableScoreDistillationSampling
+                from guidance.sdcn_utils_from_avatar import (
+                    ControllableScoreDistillationSampling,
+                )
 
                 self.guidance_sd = ControllableScoreDistillationSampling(
                     self.device, guide_cfg=GuideConfig()
