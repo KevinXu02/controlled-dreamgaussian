@@ -419,11 +419,14 @@ class Trainer:
 
         print(f"[INFO] save model to {path}.")
 
-    def save_model_ply(self, iter):
+    def save_model_ply(self, iter=None):
         os.makedirs(self.opt.outdir, exist_ok=True)
-        path = os.path.join(
-            self.opt.outdir, self.opt.save_path + "_model_" + str(iter) + ".ply"
-        )
+        if iter is None:
+            path = os.path.join(self.opt.outdir, self.opt.save_path + "_model.ply")
+        else:
+            path = os.path.join(
+                self.opt.outdir, self.opt.save_path + "_model_" + str(iter) + ".ply"
+            )
         self.renderer.gaussians.save_ply(path)
         print(f"[INFO] save model to {path}.")
 
@@ -449,12 +452,12 @@ class Trainer:
             self.renderer.gaussians.prune(min_opacity=0.01, extent=1, max_screen_size=1)
 
         # save
-        self.save_model_ply(iter)
+        self.save_model_ply()
         # self.save_model(mode="geo+tex")
         # zip the images in output folder, ensure unique name
         import shutil
 
-        shutil.make_archive(f"{self.prompt}_output", "zip", "output")
+        shutil.make_archive(f"./training_imgs/{self.prompt}_output", "zip", "output")
 
     def save(self):
         params = self.renderer.get_params_for_save()
