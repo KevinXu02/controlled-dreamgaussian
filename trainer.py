@@ -67,6 +67,11 @@ class Trainer:
         self.step = 0
         self.train_steps = 1  # steps per rendering loop
 
+        # logging
+        if opt.wandb:
+            wandb.init(project="DreamGaussian", config=opt)
+            wandb.watch(self.renderer.gaussians, log="all")
+
         # load input data from cmdline
         if self.opt.input is not None:
             self.load_input(self.opt.input)
@@ -129,7 +134,9 @@ class Trainer:
         if self.guidance_sd is None and self.enable_sd:
             if self.opt.sdcn:
                 print(f"[INFO] loading SDCN...")
-                from guidance.sdcn_utils_from_avatar import ControllableScoreDistillationSampling
+                from guidance.sdcn_utils_from_avatar import (
+                    ControllableScoreDistillationSampling,
+                )
 
                 self.guidance_sd = ControllableScoreDistillationSampling(
                     self.device, guide_cfg=GuideConfig()
@@ -339,8 +346,9 @@ class Trainer:
                     )
 
             # logging loss and render_resuluion
-            wandb.log({"loss": loss.item()})
-            wandb.log({"render_resolution": render_resolution})
+            if self.opt.wandb:
+                wandb.log({"loss": loss.item()})
+                wandb.log({"render_resolution": render_resolution})
             # optimize step
             loss.backward()
             self.optimizer.step()
@@ -430,8 +438,6 @@ class Trainer:
 
     # no gui mode
     def train(self, iters=500):
-        # wandb.init(project="Gaussian3D")
-
         if iters > 0:
             self.prepare_train()
             for iter in tqdm.trange(iters):
