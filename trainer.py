@@ -82,7 +82,7 @@ class Trainer:
 
         # override if provide a checkpoint
         if self.opt.load is not None:
-            self.renderer.initialize(self.opt.load)
+            self.renderer.initialize(self.opt.load, opt=self.opt)
         else:
             # initialize gaussians to a blob
             self.renderer.initialize(num_pts=self.opt.num_pts)
@@ -222,7 +222,7 @@ class Trainer:
                 # render random view
                 ver = np.random.randint(min_ver, max_ver)
                 hor = np.random.randint(-180, 180)
-                # add radius after 3000 steps, uniform sampling from [0, 1]
+                # dynamic radius to avoid too small radius
                 radius = 0 if step_ratio < 0.3 else (0.4 if step_ratio < 0.6 else 0.8)
 
                 vers.append(ver)
@@ -285,7 +285,7 @@ class Trainer:
             images = torch.cat(images, dim=0)
             poses = torch.from_numpy(np.stack(poses, axis=0)).to(self.device)
 
-            if self.step % 500 == 0:
+            if self.step % self.opt.save_interval == 0:
                 from PIL import Image
 
                 front_pose = orbit_camera(-15, 15, self.opt.radius + radius)
@@ -305,7 +305,9 @@ class Trainer:
                 img = img.detach().permute(1, 2, 0).cpu().numpy()
                 img = (img * 255).astype(np.uint8)
                 img = Image.fromarray(img)
-                img.save(f"output/{self.step}.png")
+                output_dir = f"output/{self.opt.save_path}"
+                os.makedirs(output_dir, exist_ok=True)
+                img.save(f"{output_dir}/{self.step}.png")
 
             # guidance loss
             if self.enable_sd:
@@ -387,7 +389,7 @@ class Trainer:
                 and self.step <= self.opt.density_end_iter
             ):
                 viewspace_point_tensor, visibility_filter, radii = (
-                    out["viewspace_points"],
+                    out["viewspace_points"].to(self.device),
                     out["visibility_filter"],
                     out["radii"],
                 )
@@ -439,32 +441,29 @@ class Trainer:
         #     self.train_steps = train_steps
 
     @torch.no_grad()
-    def save_model(self, mode="geo", texture_size=1024):
-        os.makedirs(self.opt.outdir, exist_ok=True)
-        path = os.path.join(self.opt.outdir, self.opt.save_path + "_model.ply")
-        self.renderer.gaussians.save_ply(path)
-
-        print(f"[INFO] save model to {path}.")
-
-    def save_model_ply(self, iter=None):
-        os.makedirs(self.opt.outdir, exist_ok=True)
-        if iter is None:
-            path = os.path.join(self.opt.outdir, self.opt.save_path + "_model.ply")
-        else:
-            path = os.path.join(
-                self.opt.outdir, self.opt.save_path + "_model_" + str(iter) + ".ply"
-            )
-        self.renderer.gaussians.save_ply(path)
-        print(f"[INFO] save model to {path}.")
-
-    def render(self):
-        assert self.gui
-        while dpg.is_dearpygui_running():
-            # update texture every frame
-            if self.training:
-                self.train_step()
-            self.test_step()
-            dpg.render_dearpygui_frame()
+    def save_model(self, mode="ply", iter=None):
+        save_dir = os.path.join(self.opt.outdir, self.opt.save_path)
+        os.makedirs(save_dir, exist_ok=True)
+        if mode == "ply":
+            if iter is None:
+                path = os.path.join(save_dir, self.opt.save_path + "_model.ply")
+            else:
+                path = os.path.join(
+                    save_dir,
+                    self.opt.save_path + "_model_" + str(iter) + ".ply",
+                )
+            self.renderer.gaussians.save_ply(path)
+            print(f"[INFO] save model to {path}.")
+        elif mode == "ckpt":
+            if iter is None:
+                path = os.path.join(save_dir, self.opt.save_path + "_model.ckpt")
+            else:
+                path = os.path.join(
+                    save_dir,
+                    self.opt.save_path + "_model_" + str(iter) + ".ckpt",
+                )
+            self.renderer.gaussians.save_ckpt(path)
+            print(f"[INFO] save model to {path}.")
 
     # no gui mode
     def train(self, iters=500):
@@ -473,31 +472,19 @@ class Trainer:
             for iter in tqdm.trange(iters):
                 self.train_step()
                 # save ply per 500 iters
-                if iter % 500 == 0 and iter != 0:
-                    self.save_model_ply(iter)
+                if iter % self.opt.save_interval == 0 and iter != 0:
+                    self.save_model(iter=iter, mode="ckpt")
+
             # do a last prune
             self.renderer.gaussians.prune(min_opacity=0.01, extent=1, max_screen_size=1)
 
         # save
-        self.save_model_ply()
+        self.save_model(mode="ply")
         # self.save_model(mode="geo+tex")
         # zip the images in output folder, ensure unique name
         import shutil
 
         shutil.make_archive(f"./training_imgs/{self.prompt}_output", "zip", "output")
-
-    def save(self):
-        params = self.renderer.get_params_for_save()
-        cfg = to_primitive(self.cfg)
-        state = {
-            "params": params,
-            "cfg": cfg,
-            "step": self.step,
-        }
-        save_dir = self.save_dir / "ckpts"
-        if not save_dir.exists():
-            save_dir.mkdir(parents=True, exist_ok=True)
-        torch.save(state, self.save_dir / "ckpts" / f"step_{self.step}.pt")
 
 
 if __name__ == "__main__":
@@ -512,4 +499,4 @@ if __name__ == "__main__":
     opt = OmegaConf.merge(OmegaConf.load(args.config), OmegaConf.from_cli(extras))
 
     trainer = Trainer(opt)
-    trainer.train()
+    trainer.train(opt.iters)
