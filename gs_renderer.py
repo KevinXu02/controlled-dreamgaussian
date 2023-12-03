@@ -329,35 +329,35 @@ class GaussianModel:
 
         return occ
 
-    def extract_mesh(self, path, density_thresh=1, resolution=128, decimate_target=1e5):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+    # def extract_mesh(self, path, density_thresh=1, resolution=128, decimate_target=1e5):
+    #     os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        occ = self.extract_fields(resolution).detach().cpu().numpy()
+    #     occ = self.extract_fields(resolution).detach().cpu().numpy()
 
-        import mcubes
+    #     import mcubes
 
-        vertices, triangles = mcubes.marching_cubes(occ, density_thresh)
-        vertices = vertices / (resolution - 1.0) * 2 - 1
+    #     vertices, triangles = mcubes.marching_cubes(occ, density_thresh)
+    #     vertices = vertices / (resolution - 1.0) * 2 - 1
 
-        # transform back to the original space
-        vertices = vertices / self.scale + self.center.detach().cpu().numpy()
+    #     # transform back to the original space
+    #     vertices = vertices / self.scale + self.center.detach().cpu().numpy()
 
-        vertices, triangles = clean_mesh(
-            vertices, triangles, remesh=True, remesh_size=0.015
-        )
-        if decimate_target > 0 and triangles.shape[0] > decimate_target:
-            vertices, triangles = decimate_mesh(vertices, triangles, decimate_target)
+    #     vertices, triangles = clean_mesh(
+    #         vertices, triangles, remesh=True, remesh_size=0.015
+    #     )
+    #     if decimate_target > 0 and triangles.shape[0] > decimate_target:
+    #         vertices, triangles = decimate_mesh(vertices, triangles, decimate_target)
 
-        v = torch.from_numpy(vertices.astype(np.float32)).contiguous().cuda()
-        f = torch.from_numpy(triangles.astype(np.int32)).contiguous().cuda()
+    #     v = torch.from_numpy(vertices.astype(np.float32)).contiguous().cuda()
+    #     f = torch.from_numpy(triangles.astype(np.int32)).contiguous().cuda()
 
-        print(
-            f"[INFO] marching cubes result: {v.shape} ({v.min().item()}-{v.max().item()}), {f.shape}"
-        )
+    #     print(
+    #         f"[INFO] marching cubes result: {v.shape} ({v.min().item()}-{v.max().item()}), {f.shape}"
+    #     )
 
-        mesh = Mesh(v=v, f=f, device="cuda")
+    #     mesh = Mesh(v=v, f=f, device="cuda")
 
-        return mesh
+    #     return mesh
 
     def get_covariance(self, scaling_modifier=1):
         return self.covariance_activation(
@@ -516,6 +516,10 @@ class GaussianModel:
         elements[:] = list(map(tuple, attributes))
         el = PlyElement.describe(elements, "vertex")
         PlyData([el]).write(path)
+
+    def save_ckpt(self, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        torch.save(self.capture(), path)
 
     def reset_opacity(self):
         opacities_new = inverse_sigmoid(
@@ -898,7 +902,7 @@ class Renderer:
             device="cuda",
         )
 
-    def initialize(self, input=None, num_pts=5000, radius=0.5):
+    def initialize(self, input=None, opt=None, num_pts=5000, radius=0.5):
         # load checkpoint
         if input is None:
             # init from random point cloud
@@ -922,9 +926,14 @@ class Renderer:
         elif isinstance(input, BasicPointCloud):
             # load from a provided pcd
             self.gaussians.create_from_pcd(input, 1)
-        else:
-            # load from saved ply
-            self.gaussians.load_ply(input)
+        # if is a path to a ply file
+        elif isinstance(input, str):
+            if input.endswith(".ply"):
+                self.gaussians.load_ply(input)
+            else:
+                self.gaussians.restore(torch.load(input), opt)
+                print("[INFO] Loaded checkpoint from {}".format(input))
+                print("Number of points at loading : ", self.gaussians.num_points())
 
     def render(
         self,
