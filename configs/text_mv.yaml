@@ -16,6 +16,7 @@ density_thresh: 1
 outdir: logs
 mesh_format: obj
 save_path: ???
+save_interval: 500
 
 ### Training
 # guidance loss weights (0 to disable)

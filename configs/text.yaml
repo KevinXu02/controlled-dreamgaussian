@@ -16,10 +16,11 @@ density_thresh: 1
 outdir: logs
 mesh_format: obj
 save_path: ???
+save_interval: 500
 
 #stable diffution
 load_from_local: False
-local_path: pretrained_models\DarthVader.ckpt
+local_path: pretrained_models\v1-5-pruned-emaonly.ckpt
 
 ### Training
 # guidance loss weights (0 to disable)
