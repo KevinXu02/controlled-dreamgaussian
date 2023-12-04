@@ -123,6 +123,7 @@ class ControlNet(nn.Module):
             self.pipe.scheduler.config, torch_dtype=self.dtype
         )
         del self.pipe
+
         self.num_train_timesteps = self.scheduler.config.num_train_timesteps
         self.min_step = int(self.num_train_timesteps * t_range[0])
         self.max_step = int(self.num_train_timesteps * t_range[1])
@@ -297,8 +298,8 @@ class ControlNet(nn.Module):
                 encoder_hidden_states=embeddings,
                 # timestep_cond=timestep_cond,
                 # cross_attention_kwargs=cross_attention_kwargs,
-                # down_block_additional_residuals=down_block_res_samples,
-                # mid_block_additional_residual=mid_block_res_sample,
+                down_block_additional_residuals=down_block_res_samples,
+                mid_block_additional_residual=mid_block_res_sample,
             ).sample
 
             # perform guidance (high scale from paper!)
