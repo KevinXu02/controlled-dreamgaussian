@@ -860,7 +860,6 @@ class MiniCam:
         self.zfar = zfar
 
         w2c = np.linalg.inv(c2w)
-        self.RT = w2c[:3, :4]
 
         # rectify...
         w2c[1:3, :3] *= -1
@@ -886,6 +885,7 @@ class MiniCam:
         K[1, 2] = self.image_height / 2
         K[2, 2] = 1
         return K
+    
 
 
 class Renderer:

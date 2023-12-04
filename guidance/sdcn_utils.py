@@ -6,6 +6,7 @@ from diffusers import (
     DDIMScheduler,
     StableDiffusionControlNetPipeline,
     ControlNetModel,
+    StableDiffusionPipeline,
 )
 
 from diffusers.utils import load_image
@@ -79,28 +80,31 @@ class ControlNet(nn.Module):
 
         controlnet = ControlNetModel.from_pretrained(
             MODEL_CARDS[cond_type], torch_dtype=torch.float16 if fp16 else torch.float32
-        )
-        self.pipe = StableDiffusionControlNetPipeline.from_pretrained(
+        ).to(device)
+        # self.pipe = StableDiffusionControlNetPipeline.from_pretrained(
+        #     "runwayml/stable-diffusion-v1-5",
+        #     controlnet=controlnet,
+        #     torch_dtype=torch.float16 if fp16 else torch.float32,
+        # )
+        pipe = StableDiffusionPipeline.from_pretrained(
             "runwayml/stable-diffusion-v1-5",
-            controlnet=controlnet,
             torch_dtype=torch.float16 if fp16 else torch.float32,
         )
 
         if vram_O:
-            self.pipe.enable_sequential_cpu_offload()
-            self.pipe.enable_vae_slicing()
-            self.pipe.unet.to(memory_format=torch.channels_last)
-            self.pipe.enable_attention_slicing(1)
+            pipe.enable_sequential_cpu_offload()
+            pipe.enable_vae_slicing()
+            pipe.unet.to(memory_format=torch.channels_last)
+            pipe.enable_attention_slicing(1)
             # pipe.enable_model_cpu_offload()
         else:
-            self.pipe.to(device)
+            pipe.to(device)
 
-        self.tokenizer = self.pipe.tokenizer
-        self.scheduler = self.pipe.scheduler
-        self.text_encoder = self.pipe.text_encoder
-        self.vae = self.pipe.vae
-        self.unet = self.pipe.unet
-        self.controlnet = self.pipe.controlnet
+        self.vae = pipe.vae
+        self.tokenizer = pipe.tokenizer
+        self.text_encoder = pipe.text_encoder
+        self.unet = pipe.unet
+        self.controlnet = controlnet
         # self.cond_processors = cond_processors
 
         self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
@@ -114,9 +118,9 @@ class ControlNet(nn.Module):
         )
 
         self.scheduler = DDIMScheduler.from_config(
-            self.pipe.scheduler.config, torch_dtype=self.dtype
+            pipe.scheduler.config, torch_dtype=self.dtype
         )
-        del self.pipe
+        del pipe
 
         self.num_train_timesteps = self.scheduler.config.num_train_timesteps
         self.min_step = int(self.num_train_timesteps * t_range[0])
@@ -148,21 +152,193 @@ class ControlNet(nn.Module):
         embeddings = self.text_encoder(inputs.input_ids.to(self.device))[0]
         return embeddings
 
+    # def train_step(
+    #     self,
+    #     pred_rgb,  # TODO:This can be [B,C,H,W] or [C,H*N_1,W*N_2], modify the code accordingly
+    #     cond_img=None,
+    #     step_ratio=None,
+    #     guidance_scale=10,
+    #     as_latent=False,
+    #     hors=None,
+    #     debug=False,
+    # ):
+    #     batch_size = 1
+    #     # TODO: get the width and height of the generate image
+    #     width = 512
+    #     height = 512
+
+    #     pred_rgb = pred_rgb.to(self.dtype)
+
+    #     if as_latent:
+    #         latents = (
+    #             F.interpolate(pred_rgb, (64, 64), mode="bilinear", align_corners=False)
+    #             * 2
+    #             - 1
+    #         )
+    #     else:
+    #         # interp to 512x512 to be fed into vae.
+    #         pred_rgb_512 = F.interpolate(
+    #             pred_rgb, (512, 512), mode="bilinear", align_corners=False
+    #         )
+    #         # encode image into latents with vae, requires grad!
+    #         latents = self.encode_imgs(pred_rgb_512)
+    #         # decode and visualize latents for debug
+    #     if debug:
+    #         imgs = self.decode_latents(latents)
+    #         kiui.vis.plot_image(imgs[0].detach().cpu().permute(1, 2, 0).numpy())
+    #     # 7.1 Create tensor stating which controlnets to keep
+    #     # controlnet_keep = []
+    #     # for i in range(len(timesteps)):
+    #     #     keeps = [
+    #     #         1.0 - float(i / len(timesteps) < s or (i + 1) / len(timesteps) > e)
+    #     #         for s, e in zip(control_guidance_start, control_guidance_end)
+    #     #     ]
+    #     #     controlnet_keep.append(
+    #     #         keeps[0] if isinstance(controlnet, ControlNetModel) else keeps
+    #     #     )
+
+    #     # camera = convert_opengl_to_blender(camera)
+    #     # flip_yz = torch.tensor([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]).unsqueeze(0)
+    #     # camera = torch.matmul(flip_yz.to(camera), camera)
+
+    #     # predict the noise residual with unet, NO grad!
+    #     with torch.no_grad():
+    #         if step_ratio is not None:
+    #             # dreamtime-like
+    #             # t = self.max_step - (self.max_step - self.min_step) * np.sqrt(step_ratio)
+    #             t = np.round((1 - step_ratio) * self.num_train_timesteps).clip(
+    #                 self.min_step, self.max_step
+    #             )
+    #             t = torch.full((batch_size,), t, dtype=torch.long, device=self.device)
+    #         else:
+    #             t = torch.randint(
+    #                 self.min_step,
+    #                 self.max_step + 1,
+    #                 (batch_size,),
+    #                 dtype=torch.long,
+    #                 device=self.device,
+    #             )
+    #         # w(t), sigma_t^2
+    #         w = (1 - self.alphas[t]).view(batch_size, 1, 1, 1)
+
+    #         # add noise
+    #         noise = torch.randn_like(latents)
+    #         latents_noisy = self.scheduler.add_noise(latents, noise, t)
+    #         # pred noise
+    #         latent_model_input = torch.cat([latents_noisy] * 2)
+
+    #         tt = torch.cat([t] * 2)
+
+    #         # Run controlnet
+
+    #         if hors is None:
+    #             embeddings = torch.cat(
+    #                 [
+    #                     self.embeddings["pos"].expand(batch_size, -1, -1),
+    #                     self.embeddings["neg"].expand(batch_size, -1, -1),
+    #                 ]
+    #             )
+    #         else:
+
+    #             def _get_dir_ind(h):
+    #                 if abs(h) < 60:
+    #                     return "front"
+    #                 elif abs(h) < 120:
+    #                     return "side"
+    #                 else:
+    #                     return "back"
+
+    #             embeddings = torch.cat(
+    #                 [self.embeddings[_get_dir_ind(h)] for h in hors]
+    #                 + [self.embeddings["neg"].expand(batch_size, -1, -1)]
+    #             )
+
+    #         image = self.prepare_image(
+    #             image=cond_img,
+    #             width=width,
+    #             height=height,
+    #             batch_size=batch_size * 1,
+    #             num_images_per_prompt=1,
+    #             do_classifier_free_guidance=True,
+    #             guess_mode=False,
+    #             device=self.device,
+    #             dtype=self.dtype,
+    #         )
+    #         height, width = image.shape[-2:]
+
+    #         # visualize image for debug
+
+    #         # kiui.lo(embeddings, camera)
+    #         # kiui.vis.plot_image(image[0].cpu().permute(1, 2, 0).numpy())
+
+    #         # controlnet(s) inference
+    #         control_model_input = latent_model_input
+    #         controlnet_prompt_embeds = embeddings
+
+    #         down_block_res_samples, mid_block_res_sample = self.controlnet(
+    #             sample=control_model_input,
+    #             timestep=tt,
+    #             encoder_hidden_states=controlnet_prompt_embeds,
+    #             controlnet_cond=image,
+    #             conditioning_scale=0,
+    #             guess_mode=False,
+    #             return_dict=False,
+    #         )
+
+    #         noise_pred = self.unet(
+    #             latent_model_input,
+    #             tt,
+    #             encoder_hidden_states=embeddings,
+    #             # timestep_cond=timestep_cond,
+    #             # cross_attention_kwargs=cross_attention_kwargs,
+    #             down_block_additional_residuals=down_block_res_samples,
+    #             mid_block_additional_residual=mid_block_res_sample,
+    #         ).sample
+
+    #         # perform guidance (high scale from paper!)
+    #         noise_pred_uncond, noise_pred_pos = noise_pred.chunk(2)
+    #         noise_pred = noise_pred_uncond + guidance_scale * (
+    #             noise_pred_pos - noise_pred_uncond
+    #         )
+
+    #         ### visualize the denoised image for debug. BUG HERE!!!IDK WHY
+    #         if debug:
+    #             alpha_t = self.scheduler.alphas.to(self.device)[t]
+    #             beta_t = self.scheduler.betas.to(self.device)[t]
+    #             alpha_comp_t = self.scheduler.alphas_cumprod.to(self.device)[t]
+    #             latents_denoise = (
+    #                 latents_noisy - noise_pred * beta_t / torch.sqrt(1 - alpha_comp_t)
+    #             ) / torch.sqrt(alpha_t)
+    #             imgs = self.decode_latents(latents_denoise)
+    #             kiui.vis.plot_image(imgs[0].detach().cpu().permute(1, 2, 0).numpy())
+
+    #         grad = w * (noise_pred - noise)
+    #         grad = torch.nan_to_num(grad)
+
+    #     # seems important to avoid NaN...
+    #     # grad = grad.clamp(-1, 1)
+
+    #     target = (latents - grad).detach()
+    #     loss = (
+    #         0.5
+    #         * F.mse_loss(latents.float(), target, reduction="sum")
+    #         / latents.shape[0]
+    #     )
+
+    #     return loss
+
     def train_step(
         self,
-        pred_rgb,  # TODO:This can be [B,C,H,W] or [C,H*N_1,W*N_2], modify the code accordingly
-        cond_img=None,
+        pred_rgb,
         step_ratio=None,
-        guidance_scale=10,
+        guidance_scale=7.5,
         as_latent=False,
+        vers=None,
         hors=None,
+        cond_img=None,
         debug=False,
     ):
-        batch_size = 1
-        # TODO: get the width and height of the generate image
-        width = 512
-        height = 512
-
+        batch_size = pred_rgb.shape[0]
         pred_rgb = pred_rgb.to(self.dtype)
 
         if as_latent:
@@ -178,26 +354,7 @@ class ControlNet(nn.Module):
             )
             # encode image into latents with vae, requires grad!
             latents = self.encode_imgs(pred_rgb_512)
-            # decode and visualize latents for debug
-        if debug:
-            imgs = self.decode_latents(latents)
-            kiui.vis.plot_image(imgs[0].detach().cpu().permute(1, 2, 0).numpy())
-        # 7.1 Create tensor stating which controlnets to keep
-        # controlnet_keep = []
-        # for i in range(len(timesteps)):
-        #     keeps = [
-        #         1.0 - float(i / len(timesteps) < s or (i + 1) / len(timesteps) > e)
-        #         for s, e in zip(control_guidance_start, control_guidance_end)
-        #     ]
-        #     controlnet_keep.append(
-        #         keeps[0] if isinstance(controlnet, ControlNetModel) else keeps
-        #     )
 
-        # camera = convert_opengl_to_blender(camera)
-        # flip_yz = torch.tensor([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]]).unsqueeze(0)
-        # camera = torch.matmul(flip_yz.to(camera), camera)
-
-        # predict the noise residual with unet, NO grad!
         with torch.no_grad():
             if step_ratio is not None:
                 # dreamtime-like
@@ -214,17 +371,17 @@ class ControlNet(nn.Module):
                     dtype=torch.long,
                     device=self.device,
                 )
+
             # w(t), sigma_t^2
             w = (1 - self.alphas[t]).view(batch_size, 1, 1, 1)
 
+            # predict the noise residual with unet, NO grad!
             # add noise
             noise = torch.randn_like(latents)
             latents_noisy = self.scheduler.add_noise(latents, noise, t)
             # pred noise
             latent_model_input = torch.cat([latents_noisy] * 2)
             tt = torch.cat([t] * 2)
-
-            # Run controlnet
 
             if hors is None:
                 embeddings = torch.cat(
@@ -248,10 +405,10 @@ class ControlNet(nn.Module):
                     + [self.embeddings["neg"].expand(batch_size, -1, -1)]
                 )
 
-            image = self.prepare_image(
+            controlnet_cond = self.prepare_image(
                 image=cond_img,
-                width=width,
-                height=height,
+                width=512,
+                height=512,
                 batch_size=batch_size * 1,
                 num_images_per_prompt=1,
                 do_classifier_free_guidance=True,
@@ -259,23 +416,13 @@ class ControlNet(nn.Module):
                 device=self.device,
                 dtype=self.dtype,
             )
-            height, width = image.shape[-2:]
-
-            # visualize image for debug
-
-            # kiui.lo(embeddings, camera)
-            # kiui.vis.plot_image(image[0].cpu().permute(1, 2, 0).numpy())
-
-            # controlnet(s) inference
-            control_model_input = latent_model_input
-            controlnet_prompt_embeds = embeddings
 
             down_block_res_samples, mid_block_res_sample = self.controlnet(
-                sample=control_model_input,
-                timestep=tt,
-                encoder_hidden_states=controlnet_prompt_embeds,
-                controlnet_cond=image,
-                conditioning_scale=0,
+                latent_model_input,
+                t,
+                encoder_hidden_states=embeddings,
+                controlnet_cond=controlnet_cond,
+                conditioning_scale=1,
                 guess_mode=False,
                 return_dict=False,
             )
@@ -284,35 +431,21 @@ class ControlNet(nn.Module):
                 latent_model_input,
                 tt,
                 encoder_hidden_states=embeddings,
-                # timestep_cond=timestep_cond,
-                # cross_attention_kwargs=cross_attention_kwargs,
                 down_block_additional_residuals=down_block_res_samples,
                 mid_block_additional_residual=mid_block_res_sample,
             ).sample
 
             # perform guidance (high scale from paper!)
-            noise_pred_uncond, noise_pred_pos = noise_pred.chunk(2)
+            noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2)
             noise_pred = noise_pred_uncond + guidance_scale * (
-                noise_pred_pos - noise_pred_uncond
+                noise_pred_cond - noise_pred_uncond
             )
 
-            ### visualize the denoised image for debug. BUG HERE!!!IDK WHY
-            if debug:
-                alpha_t = self.scheduler.alphas.to(self.device)[t]
-                beta_t = self.scheduler.betas.to(self.device)[t]
-                alpha_comp_t = self.scheduler.alphas_cumprod.to(self.device)[t]
-                latents_denoise = (
-                    latents_noisy.detach()
-                    - noise_pred.detach() * beta_t / torch.sqrt(1 - alpha_comp_t)
-                ) / torch.sqrt(alpha_t)
-                imgs = self.decode_latents(latents_denoise)
-                kiui.vis.plot_image(imgs[0].detach().cpu().permute(1, 2, 0).numpy())
+            grad = w * (noise_pred - noise)
+            grad = torch.nan_to_num(grad)
 
-        grad = w * (noise_pred - noise).float()
-        grad = torch.nan_to_num(grad)
-
-        # seems important to avoid NaN...
-        # grad = grad.clamp(-1, 1)
+            # seems important to avoid NaN...
+            # grad = grad.clamp(-1, 1)
 
         target = (latents - grad).detach()
         loss = (
@@ -532,14 +665,20 @@ class ControlNet(nn.Module):
 
 
 if __name__ == "__main__":
+    import os
+    import sys
+
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    parent_dir = os.path.dirname(current_dir)
+    sys.path.append(parent_dir)
     from openpose_utils import *
     from cam_utils import orbit_camera
     from gs_renderer import MiniCam
+    import argparse
+    import matplotlib.pyplot as plt
 
-    pose = orbit_camera(30, 180, 2.5)
-    w2c = np.linalg.inv(pose)
-    w2c[1:3, :3] *= -1
-    w2c[:3, 3] *= -1
+    pose = orbit_camera(0, -30, 2.8)
+
     fovy = 49
     # print(pose)
     cur_cam = MiniCam(
@@ -555,12 +694,12 @@ if __name__ == "__main__":
         [
             [0, 158, 14],
             [0, 138, 0],
-            [-17, 138, 0],
-            [-17, 113, 0],
-            [-17, 88, 0],
-            [17, 138, 0],
-            [17, 113, 0],
-            [17, 88, 0],
+            [-24.359, 138, 0],
+            [-24.359, 113, 0],
+            [-24.359, 88, 0],
+            [24.35899677400892, 137.98746723043956, -0.0003057947085924311],
+            [24.35293963054313, 125.68365337299872, 21.762417561352798],
+            [9.536254587958911, 120.30510656432348, 41.166980905467256],
             [-10, 92, 0],
             [-10, 52, 0],
             [-10, 16, 0],
@@ -593,9 +732,6 @@ if __name__ == "__main__":
     # plt.show()
     openpose_image = Image.fromarray(openpose_image)
 
-    import argparse
-    import matplotlib.pyplot as plt
-
     parser = argparse.ArgumentParser()
     parser.add_argument("prompt", type=str)
     parser.add_argument("--negative", default="", type=str)
@@ -606,7 +742,7 @@ if __name__ == "__main__":
     parser.add_argument("-H", type=int, default=512)
     parser.add_argument("-W", type=int, default=512)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--steps", type=int, default=50)
+    parser.add_argument("--steps", type=int, default=25)
     opt = parser.parse_args()
 
     seed_everything(opt.seed)
@@ -615,10 +751,10 @@ if __name__ == "__main__":
 
     sd = ControlNet(device)
 
-    imgs = sd.prompt_to_img(
+    img = sd.prompt_to_img(
         opt.prompt, opt.negative, opt.H, opt.W, opt.steps, cond_img=openpose_image
-    )
-
+    )[0]
+    concat_img = np.concatenate([img, openpose_image], axis=1)
     # visualize image
-    plt.imshow(imgs[0])
+    plt.imshow(concat_img)
     plt.show()

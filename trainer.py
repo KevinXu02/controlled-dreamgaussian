@@ -314,6 +314,34 @@ class Trainer:
             # guidance loss
             if self.enable_sd:
                 if self.opt.sdcn:
+                    T_pose_keypoints = np.array(
+                        [
+                            [0, 158, 14],
+                            [0, 138, 0],
+                            [-24.359, 138, 0],
+                            [-24.359, 113, 0],
+                            [-24.359, 88, 0],
+                            [
+                                24.35899677400892,
+                                137.98746723043956,
+                                -0.0003057947085924311,
+                            ],
+                            [24.35293963054313, 125.68365337299872, 21.762417561352798],
+                            [9.536254587958911, 120.30510656432348, 41.166980905467256],
+                            [-10, 92, 0],
+                            [-10, 52, 0],
+                            [-10, 16, 0],
+                            [10, 92, 0],
+                            [10, 52, 0],
+                            [10, 16, 0],
+                            [-3, 161, 11],
+                            [3, 161, 11],
+                            [-7, 158, 3],
+                            [7, 158, 3],
+                        ]
+                    )
+
+                    normalized_keypoints = mid_and_scale(T_pose_keypoints)
                     cur_cam = MiniCam(
                         pose,
                         512,
@@ -329,31 +357,6 @@ class Trainer:
                     K = cur_cam.K()
                     RT = w2c[:3, :]
 
-                    T_pose_keypoints = np.array(
-                        [
-                            [0, 158, 14],
-                            [0, 138, 0],
-                            [-17, 138, 0],
-                            [-17, 113, 0],
-                            [-17, 88, 0],
-                            [17, 138, 0],
-                            [17, 113, 0],
-                            [17, 88, 0],
-                            [-10, 92, 0],
-                            [-10, 52, 0],
-                            [-10, 16, 0],
-                            [10, 92, 0],
-                            [10, 52, 0],
-                            [10, 16, 0],
-                            [-3, 161, 11],
-                            [3, 161, 11],
-                            [-7, 158, 3],
-                            [7, 158, 3],
-                        ]
-                    )
-
-                    normalized_keypoints = mid_and_scale(T_pose_keypoints)
-
                     if abs(hor) > 120:
                         is_back = True
                     else:
@@ -367,8 +370,9 @@ class Trainer:
                     )
                     import kiui
 
-                    kiui.lo(hors, vers)
-                    kiui.vis.plot_image(openpose_image)
+                    if self.opt.debug:
+                        kiui.lo(hors, vers)
+                        kiui.vis.plot_image(openpose_image)
 
                     from PIL import Image
 
@@ -378,9 +382,10 @@ class Trainer:
                         pred_rgb=images,
                         cond_img=openpose_image,
                         step_ratio=step_ratio,
-                        guidance_scale=10,
+                        guidance_scale=7.5,
                         as_latent=False,
                         hors=hors,
+                        debug=self.opt.debug,
                     )
                 elif self.opt.mvdream:
                     loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
@@ -502,9 +507,9 @@ class Trainer:
 
         # self.save_model(mode="geo+tex")
         # zip the images in output folder, ensure unique name
-        import shutil
+        # import shutil
 
-        shutil.make_archive(f"./training_imgs/{self.prompt}_output", "zip", "output")
+        # shutil.make_archive(f"./training_imgs/{self.prompt}_output", "zip", "output")
 
 
 if __name__ == "__main__":

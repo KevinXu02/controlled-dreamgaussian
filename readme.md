@@ -3,9 +3,9 @@
 This repository contains a unofficial implementation for [DreamGaussian: Generative Gaussian Splatting for Efficient 3D Content Creation](https://arxiv.org/abs/2309.16653). Adding support for loss tracking, openpose ,more render methods and integrates ControlNet into the pipeline.
 
 ## TODOs
-- [x] Debugging ControlNet (zqc)
+- [x] Debugging ControlNet (finished!!!)
 - [x] Add support for LoRA (???)
-- [x] Add support for save/load checkpoints (Kevin)
+- [x] Add support for save/load checkpoints (DEBUGGING)
 - [x] Add support for sd-turbo (???)
 - [x] Hyperparameter tuning (gsgen/gspalt codebases may help) (Alex)
 - [x] Run more tests
