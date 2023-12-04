@@ -354,12 +354,22 @@ class Trainer:
 
                     normalized_keypoints = mid_and_scale(T_pose_keypoints)
 
-                    # TODO:Base on the camera to generate the openpose images, blender convention!!!
+                    if abs(hor) > 120:
+                        is_back = True
+                    else:
+                        is_back = False
+
                     openpose_image = draw_openpose_human_pose(
                         K,
                         RT,
                         keypoints=normalized_keypoints,
+                        is_back=is_back,
                     )
+                    import kiui
+
+                    kiui.lo(hors, vers)
+                    kiui.vis.plot_image(openpose_image)
+
                     from PIL import Image
 
                     openpose_image = Image.fromarray(openpose_image)
