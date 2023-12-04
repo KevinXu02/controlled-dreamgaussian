@@ -74,5 +74,7 @@ min_opacity: 0.01
 extent: 2.5
 max_screen_size: 0.5
 
+#open this for large iters(>3000)
+dynamic_radius: False
 ### Logging
 wandb: False
