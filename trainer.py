@@ -223,7 +223,12 @@ class Trainer:
                 ver = np.random.randint(min_ver, max_ver)
                 hor = np.random.randint(-180, 180)
                 # dynamic radius to avoid too small radius
-                radius = 0 if step_ratio < 0.3 else (0.4 if step_ratio < 0.6 else 0.8)
+                if self.opt.dynamic_radius:
+                    radius = (
+                        0 if step_ratio < 0.3 else (0.4 if step_ratio < 0.6 else 0.8)
+                    )
+                else:
+                    radius = 0
 
                 vers.append(ver)
                 hors.append(hor)
@@ -455,6 +460,7 @@ class Trainer:
             self.renderer.gaussians.save_ply(path)
             print(f"[INFO] save model to {path}.")
         elif mode == "ckpt":
+            save_dir = f"{save_dir}/ckpts"
             if iter is None:
                 path = os.path.join(save_dir, self.opt.save_path + "_model.ckpt")
             else:
@@ -476,10 +482,12 @@ class Trainer:
                     self.save_model(iter=iter, mode="ckpt")
 
             # do a last prune
-            self.renderer.gaussians.prune(min_opacity=0.01, extent=1, max_screen_size=1)
+            self.renderer.gaussians.prune(min_opacity=0.01, extent=1, max_screen_size=0)
 
-        # save
+            # save
+        self.save_model(mode="ckpt", iter=iters)
         self.save_model(mode="ply")
+
         # self.save_model(mode="geo+tex")
         # zip the images in output folder, ensure unique name
         import shutil
