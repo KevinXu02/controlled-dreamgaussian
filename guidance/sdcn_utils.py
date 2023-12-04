@@ -76,14 +76,6 @@ class ControlNet(nn.Module):
         #     controlnet=controlnet,
         #     torch_dtype=self.dtype,
         # )
-        # if vram_O:
-        #     pipe.enable_sequential_cpu_offload()
-        #     pipe.enable_vae_slicing()
-        #     pipe.unet.to(memory_format=torch.channels_last)
-        #     pipe.enable_attention_slicing(1)
-        #     # pipe.enable_model_cpu_offload()
-        # else:
-        #     pipe.to(device)
 
         # if is_xformers_available():
         #     pipe.enable_xformers_memory_efficient_attention()
@@ -98,7 +90,16 @@ class ControlNet(nn.Module):
             controlnet=controlnet,
             safety_checker=None,
             torch_dtype=torch.float16 if fp16 else torch.float32,
-        ).to(self.device)
+        )
+
+        if vram_O:
+            self.pipe.enable_sequential_cpu_offload()
+            self.pipe.enable_vae_slicing()
+            self.pipe.unet.to(memory_format=torch.channels_last)
+            self.pipe.enable_attention_slicing(1)
+            # pipe.enable_model_cpu_offload()
+        else:
+            self.pipe.to(device)
 
         self.tokenizer = self.pipe.tokenizer
         self.scheduler = self.pipe.scheduler
@@ -119,7 +120,7 @@ class ControlNet(nn.Module):
         )
 
         self.scheduler = DDIMScheduler.from_config(
-            pipe.scheduler.config, torch_dtype=self.dtype
+            self.pipe.scheduler.config, torch_dtype=self.dtype
         )
         del self.pipe
         self.num_train_timesteps = self.scheduler.config.num_train_timesteps
@@ -155,8 +156,6 @@ class ControlNet(nn.Module):
     def train_step(
         self,
         pred_rgb,  # TODO:This can be [B,C,H,W] or [C,H*N_1,W*N_2], modify the code accordingly
-        camera,  # TODO: [B, 4, 4], modify the code accordingly
-        cur_cam,
         cond_img=None,
         step_ratio=None,
         guidance_scale=10,

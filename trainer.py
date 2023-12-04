@@ -134,13 +134,10 @@ class Trainer:
         if self.guidance_sd is None and self.enable_sd:
             if self.opt.sdcn:
                 print(f"[INFO] loading SDCN...")
-                from guidance.sdcn_utils_from_avatar import (
-                    ControllableScoreDistillationSampling,
-                )
+                from guidance.sdcn_utils import ControlNet
 
-                self.guidance_sd = ControllableScoreDistillationSampling(
-                    self.device, guide_cfg=GuideConfig()
-                )
+                self.guidance_sd = ControlNet(self.device)
+
                 print(f"[INFO] loaded SDCN!")
 
             elif self.opt.mvdream:
@@ -368,7 +365,12 @@ class Trainer:
                     openpose_image = Image.fromarray(openpose_image)
 
                     loss = self.opt.lambda_sd * self.guidance_sd.train_step(
-                        images, poses, step_ratio, cond_img=openpose_image
+                        pred_rgb=images,
+                        cond_img=openpose_image,
+                        step_ratio=step_ratio,
+                        guidance_scale=10,
+                        as_latent=False,
+                        hors=hors,
                     )
                 elif self.opt.mvdream:
                     loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
