@@ -7,9 +7,7 @@ from diffusers import (
     StableDiffusionControlNetPipeline,
     ControlNetModel,
 )
-from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_controlnet import (
-    MultiControlNetModel,
-)
+
 from diffusers.utils import load_image
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import randn_tensor
@@ -184,6 +182,7 @@ class ControlNet(nn.Module):
             # encode image into latents with vae, requires grad!
             latents = self.encode_imgs(pred_rgb_512)
             # decode and visualize latents for debug
+
         imgs = self.decode_latents(latents)
         kiui.vis.plot_image(imgs[0].cpu().permute(1, 2, 0).numpy())
         # 7.1 Create tensor stating which controlnets to keep
@@ -273,10 +272,7 @@ class ControlNet(nn.Module):
             # controlnet(s) inference
             control_model_input = latent_model_input
             controlnet_prompt_embeds = embeddings
-            # print input shape
-            # print(latent_model_input.shape)
-            # print(controlnet_prompt_embeds.shape)
-            # print(image.shape)
+
             down_block_res_samples, mid_block_res_sample = self.controlnet(
                 sample=control_model_input,
                 timestep=tt,
@@ -286,12 +282,7 @@ class ControlNet(nn.Module):
                 guess_mode=False,
                 return_dict=False,
             )
-            # import kiui
-            # kiui.lo(latent_model_input, t, context['context'], context['camera'])
 
-            # noise_pred = self.unet(
-            #     latent_model_input, tt, encoder_hidden_states=context
-            # ).sample
             noise_pred = self.unet(
                 latent_model_input,
                 tt,
@@ -307,6 +298,13 @@ class ControlNet(nn.Module):
             noise_pred = noise_pred_uncond + guidance_scale * (
                 noise_pred_pos - noise_pred_uncond
             )
+
+            ### visualize the denoised image for debug
+            denoised_latents = self.scheduler.step(
+                noise_pred, t, latents_noisy
+            ).prev_sample
+            imgs = self.decode_latents(denoised_latents)
+            kiui.vis.plot_image(imgs[0].cpu().permute(1, 2, 0).numpy())
 
         grad = w * (noise_pred - noise).float()
         grad = torch.nan_to_num(grad)
