@@ -136,7 +136,11 @@ class Trainer:
                 print(f"[INFO] loading SDCN...")
                 from guidance.sdcn_utils import ControlNet
 
-                self.guidance_sd = ControlNet(self.device)
+                self.guidance_sd = ControlNet(
+                    self.device,
+                    load_from_local=opt.load_from_local,
+                    local_path=opt.local_path,
+                )
 
                 print(f"[INFO] loaded SDCN!")
 
