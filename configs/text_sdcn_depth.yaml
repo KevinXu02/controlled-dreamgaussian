@@ -21,7 +21,7 @@ mesh_path: frankmocap/output/mesh.obj
 ### Output
 outdir: logs
 mesh_format: obj
-save_path: ???
+save_path: DarthVader
 save_interval: 500
 
 #stable diffution
