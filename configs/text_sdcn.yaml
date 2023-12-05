@@ -19,8 +19,8 @@ save_path: ???
 save_interval: 500
 
 #stable diffution
-load_from_local: False
-local_path: pretrained_models\v1-5-pruned-emaonly.ckpt
+load_from_local: True
+local_path: pretrained_models\DarthVader.ckpt
 
 ### Training
 # guidance loss weights (0 to disable)
@@ -43,7 +43,7 @@ load:
 # whether allow geom training in stage 2
 train_geo: False
 # prob to invert background color during training (0 = always black, 1 = always white)
-invert_bg_prob: 0.5
+invert_bg_prob: 0.2
 
 ### GUI
 gui: False
@@ -55,7 +55,6 @@ W: 800
 # training
 guidance_scale: 7.5
 
-
 ### Gaussian splatting
 num_pts: 5000
 sh_degree: 0
@@ -63,7 +62,7 @@ position_lr_init: 0.005
 position_lr_final: 0.00003
 position_lr_delay_mult: 0.02
 position_lr_max_steps: 500
-feature_lr: 0.01
+feature_lr: 0.005
 opacity_lr: 0.005
 scaling_lr: 0.005
 rotation_lr: 0.005
@@ -71,7 +70,7 @@ percent_dense: 0.01
 density_start_iter: 0
 density_end_iter: 3000
 densification_interval: 300
-opacity_reset_interval: 50000000
+opacity_reset_interval: 1500
 densify_grad_threshold: 0.01
 
 min_opacity: 0.01

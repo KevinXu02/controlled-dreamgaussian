@@ -185,7 +185,7 @@ class Trainer:
             ###if step=200: add negative prompt
             if self.enable_sd:
                 if self.step == 200:
-                    extra_prompt = "unrealistic, blurry, low quality, out of focus,ugly, low contrast, dull, dark, low-resolution, gloomy"
+                    extra_prompt = "unrealistic, blurry, low quality, out of focus,ugly, low contrast, dull, dark, low-resolution, gloomy, silhouette"
                     self.negative_prompt += extra_prompt
                     self.guidance_sd.get_text_embeds(
                         [self.prompt], [self.negative_prompt]
@@ -386,7 +386,7 @@ class Trainer:
                         pred_rgb=images,
                         cond_img=openpose_image,
                         step_ratio=step_ratio,
-                        guidance_scale=7.5,
+                        guidance_scale=self.opt.guidance_scale,
                         as_latent=False,
                         hors=hors,
                         debug=self.opt.debug,
