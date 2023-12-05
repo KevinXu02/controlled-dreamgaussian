@@ -66,12 +66,10 @@ python trainer.py --config configs/text.yaml prompt="a photo of an icecream" sav
 python main.py --config configs/text_sdcn.yaml load={path_to_corgi_nurse_model}
 ```
 
-Please check `./configs/text_mv.yaml` for more options.
+Please check `./configs/text_sdcn.yaml` for more options. You may use your own pose from https://zhuyu1997.github.io/open-pose-editor/. Just right click and copy the key points into config/text_sdcn.yaml.
 
 ## Loading LoRA models
 As diffuser doesn't support loading LoRA models to the text encoder, we have to merge the base SD model with the LoRA model in the A1111WebUI. https://github.com/AUTOMATIC1111/stable-diffusion-webui. And you can load the merged model by modifying the config file.
-
-
 
 Helper scripts:
     
