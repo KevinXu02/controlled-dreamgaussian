@@ -148,6 +148,18 @@ class Trainer:
 
                 print(f"[INFO] loaded SDCN!")
 
+            if self.opt.sdcn_depth:
+                print(f"[INFO] loading SDCN_DEPTH...")
+                from guidance.sdcn_utils import ControlNetDepth
+
+                self.guidance_sd = ControlNetDepth(
+                    self.device,
+                    load_from_local=opt.load_from_local,
+                    local_path=opt.local_path,
+                )
+
+                print(f"[INFO] loaded SDCN_DEPTH!")
+
             elif self.opt.mvdream:
                 print(f"[INFO] loading MVDream...")
                 from guidance.mvdream_utils import MVDream
@@ -172,6 +184,16 @@ class Trainer:
 
             if self.enable_zero123:
                 self.guidance_zero123.get_img_embeds(self.input_img_torch)
+
+        # sdcn and sdcn_depth should not be enabled at the same time
+        assert not (self.opt.sdcn and self.opt.sdcn_depth), "sdcn and sdcn_depth should not be enabled at the same time"
+
+        # prepare openpose render
+        if self.opt.sdcn_depth:
+            self.openpose_renderer = OpenposeRenderer(
+                keypoints_path=self.opt.keypoints_path,
+                mesh_path=self.opt.mesh_path,
+            )
 
     def train_step(self):
         starter = torch.cuda.Event(enable_timing=True)
@@ -331,23 +353,6 @@ class Trainer:
                         self.cam.near,
                         self.cam.far,
                     )
-                    # w2c = np.linalg.inv(pose)
-                    # w2c[1:3, :3] *= -1
-                    # w2c[:3, 3] *= -1
-                    # K = cur_cam.K()
-                    # RT = w2c[:3, :]
-
-                    # if abs(hor) > 120:
-                    #     is_back = True
-                    # else:
-                    #     is_back = False
-
-                    # openpose_image = draw_openpose_human_pose(
-                    #     K,
-                    #     RT,
-                    #     keypoints=self.T_pose_keypoints,
-                    #     is_back=is_back,
-                    # )
 
                     openpose_image = render_openpose(
                         pose=pose,
@@ -378,6 +383,50 @@ class Trainer:
                         hors=hors,
                         debug=self.opt.debug,
                     )
+                elif self.opt.sdcn_depth:
+                    cur_cam = MiniCam(
+                        pose,
+                        512,
+                        512,
+                        self.cam.fovy,
+                        self.cam.fovx,
+                        self.cam.near,
+                        self.cam.far,
+                    )
+
+                    openpose_image, depth_image = self.openpose_renderer.render(
+                        pose=pose,
+                        cam=cur_cam,
+                        hor=hor,
+                    )
+
+                    if self.opt.debug:
+                        import kiui
+
+                        kiui.lo(hors, vers)
+                        # visualize pil image
+                        from matplotlib import pyplot as plt
+
+                        plt.imshow(openpose_image)
+                    openpose_loss = self.guidance_sd.train_step(
+                        pred_rgb=images,
+                        cond_img=openpose_image,
+                        step_ratio=step_ratio,
+                        guidance_scale=self.opt.guidance_scale,
+                        as_latent=False,
+                        hors=hors,
+                        debug=self.opt.debug,
+                    )
+                    depth_loss = self.guidance_sd.train_step_depth(
+                        pred_rgb=images,
+                        cond_img=depth_image,
+                        step_ratio=step_ratio,
+                        guidance_scale=self.opt.guidance_scale,
+                        as_latent=False,
+                        hors=hors,
+                        debug=self.opt.debug,
+                    )
+                    loss = self.opt.lambda_sd * (openpose_loss + depth_loss) / 2
                 elif self.opt.mvdream:
                     loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
                         images, poses, step_ratio
@@ -398,8 +447,8 @@ class Trainer:
 
             # densify and prune
             if (
-                self.step >= self.opt.density_start_iter
-                and self.step <= self.opt.density_end_iter
+                    self.step >= self.opt.density_start_iter
+                    and self.step <= self.opt.density_end_iter
             ):
                 viewspace_point_tensor, visibility_filter, radii = (
                     out["viewspace_points"].to(self.device),

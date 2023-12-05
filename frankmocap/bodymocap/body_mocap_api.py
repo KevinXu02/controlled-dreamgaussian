@@ -76,6 +76,8 @@ class BodyMocap(object):
                 # pred_aa = rotmat3x3_to_angle_axis(pred_rotmat)
                 pred_aa = gu.rotation_matrix_to_angle_axis(pred_rotmat).cuda()
                 pred_aa = pred_aa.reshape(pred_aa.shape[0], 72)
+                # remove global rotation
+                pred_aa[:, :3] = 0
                 smpl_output = self.smpl(
                     betas=pred_betas,
                     body_pose=pred_aa[:, 3:],
