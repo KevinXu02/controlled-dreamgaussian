@@ -27,6 +27,7 @@ local_path: pretrained_models\v1-5-pruned-emaonly.ckpt
 lambda_sd: 1
 mvdream: False
 sdcn: False
+sdcn_depth: False
 lambda_zero123: 0
 # training batch size per iter
 batch_size: 1
@@ -56,7 +57,7 @@ W: 800
 num_pts: 5000
 sh_degree: 0
 position_lr_init: 0.005
-position_lr_final: 0.00003
+position_lr_final: 0.00002
 position_lr_delay_mult: 0.02
 position_lr_max_steps: 1000
 feature_lr: 0.01
@@ -65,8 +66,8 @@ scaling_lr: 0.005
 rotation_lr: 0.005
 percent_dense: 0.01
 density_start_iter: 0
-density_end_iter: 3000
-densification_interval: 300
+density_end_iter: 3500
+densification_interval: 500
 opacity_reset_interval: 50000000
 densify_grad_threshold: 0.01
 

@@ -2,7 +2,7 @@
 # input rgba image path (default to None, can be load in GUI too)
 input:
 # input text prompt (default to None, can be input in GUI too)
-prompt:
+prompt: Darth Vader, full body, 3d asset
 # input mesh for stage 2 (auto-search from stage 1 output path if None)
 mesh:
 # estimated elevation angle for input image
@@ -12,7 +12,7 @@ ref_size: 256
 # density thresh for mesh extraction
 density_thresh: 1
 
-pose_name: one_hand_forward
+pose_name: running
 
 ### Output
 outdir: logs
@@ -29,6 +29,7 @@ local_path: pretrained_models\DarthVader.ckpt
 lambda_sd: 1
 mvdream: False
 sdcn: True
+sdcn_depth: False
 lambda_zero123: 0
 # training batch size per iter
 batch_size: 1
