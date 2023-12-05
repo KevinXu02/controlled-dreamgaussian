@@ -55,6 +55,8 @@ class ControlNet(nn.Module):
         fp16=True,
         vram_O=False,
         t_range=[0.02, 0.98],
+        load_from_local=False,
+        local_path="pretrained_models/v1-5-pruned-emaonly.ckpt",
     ):
         super().__init__()
 
@@ -86,10 +88,22 @@ class ControlNet(nn.Module):
         #     controlnet=controlnet,
         #     torch_dtype=torch.float16 if fp16 else torch.float32,
         # )
-        pipe = StableDiffusionPipeline.from_pretrained(
-            "runwayml/stable-diffusion-v1-5",
-            torch_dtype=torch.float16 if fp16 else torch.float32,
-        )
+        if load_from_local:
+            print(f"[INFO] loading model from local checkpoint: {local_path}")
+            if not os.path.isfile(local_path):
+                raise ValueError(f"Stable-diffusion model {local_path} not found.")
+            pipe = StableDiffusionPipeline.from_single_file(
+                local_path,
+                torch_dtype=self.dtype,
+            )
+        else:
+            print(
+                f"[INFO] loading model from hugging face: runwayml/stable-diffusion-v1-5 "
+            )
+            pipe = StableDiffusionPipeline.from_pretrained(
+                "runwayml/stable-diffusion-v1-5",
+                torch_dtype=torch.float16 if fp16 else torch.float32,
+            )
 
         if vram_O:
             pipe.enable_sequential_cpu_offload()

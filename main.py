@@ -397,8 +397,6 @@ class GUI:
                     )
                 )
             # logging loss and render_resuluion
-            wandb.log({"loss": loss.item()})
-            wandb.log({"render_resolution": render_resolution})
             # optimize step
             loss.backward()
             self.optimizer.step()
