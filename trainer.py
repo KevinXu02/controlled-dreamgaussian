@@ -148,7 +148,7 @@ class Trainer:
 
                 print(f"[INFO] loaded SDCN!")
 
-            if self.opt.sdcn_depth:
+            elif self.opt.sdcn_depth:
                 print(f"[INFO] loading SDCN_DEPTH...")
                 from guidance.sdcn_utils import ControlNetDepth
 
@@ -186,7 +186,9 @@ class Trainer:
                 self.guidance_zero123.get_img_embeds(self.input_img_torch)
 
         # sdcn and sdcn_depth should not be enabled at the same time
-        assert not (self.opt.sdcn and self.opt.sdcn_depth), "sdcn and sdcn_depth should not be enabled at the same time"
+        assert not (
+            self.opt.sdcn and self.opt.sdcn_depth
+        ), "sdcn and sdcn_depth should not be enabled at the same time"
 
         # prepare openpose render
         if self.opt.sdcn_depth:
@@ -447,8 +449,8 @@ class Trainer:
 
             # densify and prune
             if (
-                    self.step >= self.opt.density_start_iter
-                    and self.step <= self.opt.density_end_iter
+                self.step >= self.opt.density_start_iter
+                and self.step <= self.opt.density_end_iter
             ):
                 viewspace_point_tensor, visibility_filter, radii = (
                     out["viewspace_points"].to(self.device),
