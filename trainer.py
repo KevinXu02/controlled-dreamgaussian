@@ -4,7 +4,6 @@ import time
 import tqdm
 import numpy as np
 import dearpygui.dearpygui as dpg
-from configs.train_config import GuideConfig
 
 import torch
 import torch.nn.functional as F
@@ -17,6 +16,7 @@ from gs_renderer import Renderer, MiniCam
 from grid_put import mipmap_linear_grid_put_2d
 import wandb
 from openpose_utils import *
+from configs.t_pose_keypoints import T_pose_keypoints
 
 
 class Trainer:
@@ -66,6 +66,10 @@ class Trainer:
         self.optimizer = None
         self.step = 0
         self.train_steps = 1  # steps per rendering loop
+
+        # t pose keypoints
+        self.T_pose_keypoints = T_pose_keypoints[opt.pose_name]
+        self.T_pose_keypoints = mid_and_scale(self.T_pose_keypoints)
 
         # logging
         if opt.wandb:
@@ -291,6 +295,7 @@ class Trainer:
             images = torch.cat(images, dim=0)
             poses = torch.from_numpy(np.stack(poses, axis=0)).to(self.device)
 
+            # save image
             if self.step % self.opt.save_interval == 0:
                 from PIL import Image
 
@@ -307,7 +312,6 @@ class Trainer:
                 bg_color = torch.tensor([1, 1, 1], dtype=torch.float32, device="cuda")
                 front_out = self.renderer.render(front_cam, bg_color=bg_color)
                 img = front_out["image"].unsqueeze(0)[0]
-                # save image
                 img = img.detach().permute(1, 2, 0).cpu().numpy()
                 img = (img * 255).astype(np.uint8)
                 img = Image.fromarray(img)
@@ -318,34 +322,6 @@ class Trainer:
             # guidance loss
             if self.enable_sd:
                 if self.opt.sdcn:
-                    T_pose_keypoints = np.array(
-                        [
-                            [0, 158, 14],
-                            [0, 138, 0],
-                            [-24.359, 138, 0],
-                            [-24.359, 113, 0],
-                            [-24.359, 88, 0],
-                            [
-                                24.35899677400892,
-                                137.98746723043956,
-                                -0.0003057947085924311,
-                            ],
-                            [24.35293963054313, 125.68365337299872, 21.762417561352798],
-                            [9.536254587958911, 120.30510656432348, 41.166980905467256],
-                            [-10, 92, 0],
-                            [-10, 52, 0],
-                            [-10, 16, 0],
-                            [10, 92, 0],
-                            [10, 52, 0],
-                            [10, 16, 0],
-                            [-3, 161, 11],
-                            [3, 161, 11],
-                            [-7, 158, 3],
-                            [7, 158, 3],
-                        ]
-                    )
-
-                    normalized_keypoints = mid_and_scale(T_pose_keypoints)
                     cur_cam = MiniCam(
                         pose,
                         512,
@@ -355,32 +331,43 @@ class Trainer:
                         self.cam.near,
                         self.cam.far,
                     )
-                    w2c = np.linalg.inv(pose)
-                    w2c[1:3, :3] *= -1
-                    w2c[:3, 3] *= -1
-                    K = cur_cam.K()
-                    RT = w2c[:3, :]
+                    # w2c = np.linalg.inv(pose)
+                    # w2c[1:3, :3] *= -1
+                    # w2c[:3, 3] *= -1
+                    # K = cur_cam.K()
+                    # RT = w2c[:3, :]
 
-                    if abs(hor) > 120:
-                        is_back = True
-                    else:
-                        is_back = False
+                    # if abs(hor) > 120:
+                    #     is_back = True
+                    # else:
+                    #     is_back = False
 
-                    openpose_image = draw_openpose_human_pose(
-                        K,
-                        RT,
-                        keypoints=normalized_keypoints,
-                        is_back=is_back,
+                    # openpose_image = draw_openpose_human_pose(
+                    #     K,
+                    #     RT,
+                    #     keypoints=self.T_pose_keypoints,
+                    #     is_back=is_back,
+                    # )
+
+                    openpose_image = render_openpose(
+                        pose=pose,
+                        cam=cur_cam,
+                        hor=hor,
+                        T_pose_keypoints=self.T_pose_keypoints,
                     )
-                    import kiui
 
                     if self.opt.debug:
+                        import kiui
+
                         kiui.lo(hors, vers)
-                        kiui.vis.plot_image(openpose_image)
+                        # visualize pil image
+                        from matplotlib import pyplot as plt
 
-                    from PIL import Image
+                        plt.imshow(openpose_image)
 
-                    openpose_image = Image.fromarray(openpose_image)
+                    # from PIL import Image
+
+                    # openpose_image = Image.fromarray(openpose_image)
 
                     loss = self.opt.lambda_sd * self.guidance_sd.train_step(
                         pred_rgb=images,

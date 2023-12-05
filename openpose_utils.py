@@ -1,8 +1,12 @@
 import cv2
 import numpy as np
+from gs_renderer import MiniCam
+from PIL import Image
 
 
-def draw_openpose_human_pose(K, RT, keypoints=None, image_shape=(512, 512), alpha=0.5, is_back=False):
+def draw_openpose_human_pose(
+    K, RT, keypoints=None, image_shape=(512, 512), alpha=0.5, is_back=False
+):
     """
     Draw Openpose human pose on image
     Args:
@@ -53,10 +57,30 @@ def draw_openpose_human_pose(K, RT, keypoints=None, image_shape=(512, 512), alph
         ]
 
         openpose_conn = [
-            [0, 1], [1, 2], [1, 5], [2, 3], [3, 4], [5, 6], [6, 7],
-            [1, 8], [8, 9], [9, 10], [10, 11], [8, 12], [12, 13],
-            [13, 14], [0, 15], [0, 16], [15, 17], [16, 18], [11, 24],
-            [11, 22], [22, 23], [14, 21], [14, 19], [19, 20]
+            [0, 1],
+            [1, 2],
+            [1, 5],
+            [2, 3],
+            [3, 4],
+            [5, 6],
+            [6, 7],
+            [1, 8],
+            [8, 9],
+            [9, 10],
+            [10, 11],
+            [8, 12],
+            [12, 13],
+            [13, 14],
+            [0, 15],
+            [0, 16],
+            [15, 17],
+            [16, 18],
+            [11, 24],
+            [11, 22],
+            [22, 23],
+            [14, 21],
+            [14, 19],
+            [19, 20],
         ]
         if is_back:
             neglect_points = [0, 15, 16]
@@ -64,19 +88,51 @@ def draw_openpose_human_pose(K, RT, keypoints=None, image_shape=(512, 512), alph
     elif keypoints_num == 18:
         # color for each keypoint(18)
         openpose_colors = [
-            (255, 0, 85), (255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0),
-            (170, 255, 0), (85, 255, 0), (0, 255, 0), (255, 0, 0), (0, 255, 85),
-            (0, 255, 170), (0, 255, 255), (0, 170, 255), (0, 85, 255), (0, 0, 255),
-            (255, 0, 170), (170, 0, 255), (255, 0, 255), (85, 0, 255), (0, 0, 255),
-            (0, 0, 255), (0, 0, 255), (0, 255, 255), (0, 255, 255), (0, 255, 255)
+            (255, 0, 85),
+            (255, 0, 0),
+            (255, 85, 0),
+            (255, 170, 0),
+            (255, 255, 0),
+            (170, 255, 0),
+            (85, 255, 0),
+            (0, 255, 0),
+            (255, 0, 0),
+            (0, 255, 85),
+            (0, 255, 170),
+            (0, 255, 255),
+            (0, 170, 255),
+            (0, 85, 255),
+            (0, 0, 255),
+            (255, 0, 170),
+            (170, 0, 255),
+            (255, 0, 255),
+            (85, 0, 255),
+            (0, 0, 255),
+            (0, 0, 255),
+            (0, 0, 255),
+            (0, 255, 255),
+            (0, 255, 255),
+            (0, 255, 255),
         ]
 
         openpose_conn = [
-            [0, 1], [1, 2], [2, 3], [3, 4],
-            [1, 5], [5, 6], [6, 7],
-            [1, 8], [8, 9], [9, 10],
-            [1, 11], [11, 12], [12, 13],
-            [0, 14], [14, 16], [0, 15], [15, 17]
+            [0, 1],
+            [1, 2],
+            [2, 3],
+            [3, 4],
+            [1, 5],
+            [5, 6],
+            [6, 7],
+            [1, 8],
+            [8, 9],
+            [9, 10],
+            [1, 11],
+            [11, 12],
+            [12, 13],
+            [0, 14],
+            [14, 16],
+            [0, 15],
+            [15, 17],
         ]
         if is_back:
             neglect_points = [0, 14, 15]
@@ -139,6 +195,28 @@ def draw_openpose_human_pose(K, RT, keypoints=None, image_shape=(512, 512), alph
         image = cv2.addWeighted(image, 1 - alpha, overlay, alpha, 0)
 
     return image
+
+
+def render_openpose(pose, cam, hor, T_pose_keypoints=None):
+    w2c = np.linalg.inv(pose)
+    w2c[1:3, :3] *= -1
+    w2c[:3, 3] *= -1
+    K = cam.K()
+    RT = w2c[:3, :]
+
+    if abs(hor) > 120:
+        is_back = True
+    else:
+        is_back = False
+
+    openpose_image = draw_openpose_human_pose(
+        K,
+        RT,
+        keypoints=T_pose_keypoints,
+        is_back=is_back,
+    )
+
+    return Image.fromarray(openpose_image)
 
 
 # def draw_openpose_human_pose_official(K, RT, keypoints=None, image_shape=(512, 512), alpha=0.5):
@@ -301,7 +379,6 @@ def mid_and_scale(keypoints):
     offset = np.array([0, 0.1, 0])
     normalized_keypoints = (keypoints - middle_point) / scale + offset
     return normalized_keypoints
-
 
 
 # def is_back(K, RT) -> bool:
