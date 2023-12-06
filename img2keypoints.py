@@ -61,7 +61,8 @@ def run_body_mocap(body_bbox_detector, body_mocap, visualizer, image_path, out_d
     timer.toc(bPrint=True, title="Time")
 
     # return openpose body25 keypoints
-    return pred_output_list[0]['pred_joints_3d'][:25], pred_output_list[0]['pred_vertices_smpl'], pred_mesh_list[0]['faces']
+    return pred_output_list[0]['pred_joints_3d'][:25], pred_output_list[0]['pred_vertices_smpl'], pred_mesh_list[0][
+        'faces']
 
 
 def mid_and_scale_kpts_mesh(keypoints, mesh):
@@ -117,6 +118,8 @@ def image2keypoint(image: np.ndarray, out_dir=None):
     smpl, vertices = mid_and_scale_kpts_mesh(smpl, vertices)
 
     if out_dir:
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
         gnu.save_mesh_to_obj(os.path.join(out_dir, 'mesh.obj'), vertices, faces)
         # save smpl as pickle
         with open(os.path.join(out_dir, 'openpose.pkl'), 'wb') as f:
@@ -124,15 +127,12 @@ def image2keypoint(image: np.ndarray, out_dir=None):
     return smpl
 
 
-
-
-
-
 if __name__ == '__main__':
-    img = cv2.imread('frankmocap/sample_data/IMG_0871.JPG')
-    out_dir = 'frankmocap/output'
-    image2keypoint(img, out_dir)
-
+    # for i in range(1001,1007):
+    #     img = cv2.imread(f'frankmocap/sample_data/IMG_{i:04d}.JPG')
+    #     out_dir = f'frankmocap/output/{i:04d}'
+    #     image2keypoint(img, out_dir)
+    # exit()
     from cam_utils import orbit_camera
     from openpose_utils import *
     import cv2
@@ -162,55 +162,62 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import trimesh, pyrender
 
-    normalized_keypoints = pickle.load(open('frankmocap/output/openpose.pkl', 'rb'))
-    # load obj
-    mesh = trimesh.load('frankmocap/output/mesh.obj')
+    for j in range(996, 1007):
+        if j == 1000: continue
+        normalized_keypoints = pickle.load(open(f'frankmocap/output/{j:04d}/openpose.pkl', 'rb'))
+        # load obj
+        mesh = trimesh.load(f'frankmocap/output/{j:04d}/mesh.obj')
 
-    mesh = pyrender.Mesh.from_trimesh(mesh)
-    scene = pyrender.Scene()
-    # add mesh node
-    scene.add(mesh)
+        mesh = pyrender.Mesh.from_trimesh(mesh)
+        scene = pyrender.Scene()
+        # add mesh node
+        scene.add(mesh)
+
+        # add camera node
+        camera = pyrender.IntrinsicsCamera(fx=K[0, 0], fy=K[1, 1], cx=K[0, 2], cy=K[1, 2], znear=0.01, zfar=1000.0)
+
+        for i in range(0, 1):
+            pose = orbit_camera(-0, i, 3.5)
+            w2c = np.linalg.inv(pose)
+            w2c[1:3, :3] *= -1
+            w2c[:3, 3] *= -1
+            RT = w2c[:3, :]
+            result = draw_openpose_human_pose(K, RT, normalized_keypoints, (512, 512), )
+            plt.imshow(result)
+            plt.savefig(f'temp/keypoints_{j:04d}.png')
+            plt.show()
+            time.sleep(0.1)
+
+            camera_pose = pose
+            scene.add(camera, pose=camera_pose)
+            # add light node
+            light = pyrender.SpotLight(color=np.ones(3), intensity=3.0, innerConeAngle=np.pi / 16.0)
+            scene.add(light, pose=camera_pose)
+
+            # render
+            r = pyrender.OffscreenRenderer(512, 512, point_size=2)
+            color, depth = r.render(scene)
+            # normalize depth to 0-255
+            depth = depth / np.max(depth) * 255
+            depth = 255 - depth
+            depth[depth == 255] = 0
+            depth[depth > 0] = depth[depth > 0] * 0.3 + 0.7
+            # plt.imshow(color)
+            # plt.title("color: " + str(i))
+            # plt.show()
+            # time.sleep(0.1)
+
+            plt.imshow(depth, cmap=plt.cm.gray)
+            plt.savefig(f'temp/depth_{j:04d}.png')
+
+            plt.show()
+            time.sleep(0.1)
+            # save plt
 
 
-    # add camera node
-    camera = pyrender.IntrinsicsCamera(fx=K[0, 0], fy=K[1, 1], cx=K[0, 2], cy=K[1, 2], znear=0.01, zfar=1000.0)
 
-
-    for i in range(0,360,36):
-        pose = orbit_camera(-0, i, 3.5)
-        w2c = np.linalg.inv(pose)
-        w2c[1:3, :3] *= -1
-        w2c[:3, 3] *= -1
-        RT = w2c[:3, :]
-        result = draw_openpose_human_pose(K, RT, normalized_keypoints, (512, 512), )
-        plt.imshow(result)
-        plt.show()
-        time.sleep(0.1)
-
-        camera_pose = pose
-        scene.add(camera, pose=camera_pose)
-        # add light node
-        light = pyrender.SpotLight(color=np.ones(3), intensity=3.0, innerConeAngle=np.pi / 16.0)
-        scene.add(light, pose=camera_pose)
-
-        # render
-        r = pyrender.OffscreenRenderer(512, 512, point_size=2)
-        color, depth = r.render(scene)
-        # normalize depth to 0-255
-        depth = depth / np.max(depth) * 255
-        depth = 255 - depth
-        depth[depth == 255] = 0
-        plt.imshow(color)
-        plt.title("color: " + str(i))
-        plt.show()
-        time.sleep(0.1)
-
-        plt.imshow(depth, cmap=plt.cm.gray)
-        plt.title("depth: " + str(i))
-        plt.show()
-        time.sleep(0.1)
-        # remove camera and light
-        camera_node = list(scene.get_nodes(obj=camera))[0]
-        scene.remove_node(camera_node)
-        light_node = list(scene.get_nodes(obj=light))[0]
-        scene.remove_node(light_node)
+            # remove camera and light
+            camera_node = list(scene.get_nodes(obj=camera))[0]
+            scene.remove_node(camera_node)
+            light_node = list(scene.get_nodes(obj=light))[0]
+            scene.remove_node(light_node)
