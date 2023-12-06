@@ -85,7 +85,7 @@ def render_gif(load_path):
 
 # main
 if __name__ == "__main__":
-    load_path = f"logs/big_darth_vader/big_darth_vader_model.ply"
+    load_path = f"logs/big_mk42/big_mk42_model_3000.ply"
     render_orbit_imgs(load_path)
     grid_image = image_utils.resize_and_fit_images("renders", "renders/gird.png")
     render_gif(load_path)
