@@ -55,6 +55,7 @@ def render_gif(load_path):
     renderer.initialize(load_path)
     poses = []
     imgs = []
+    depth_imgs = []
     for hor in range(-180, 179, 10):
         pose = orbit_camera(-15, hor, 3)
         poses.append(pose)
@@ -77,10 +78,15 @@ def render_gif(load_path):
         img = img.detach().permute(1, 2, 0).cpu().numpy()
         img = (img * 255).astype(np.uint8)
         imgs.append(img)
+        depth_img = out["depth"].unsqueeze(0)[0]
+        depth_img = depth_img.detach().permute(1, 2, 0).cpu().numpy()
+        depth_img = (depth_img * 255).astype(np.uint8)
+        depth_imgs.append(depth_img)
     # use imageio to create gif loop
     import imageio
 
     imageio.mimsave("renders/orbit.gif", imgs, "GIF", duration=0.05, loop=0)
+    imageio.mimsave("renders/orbit_depth.gif", depth_imgs, "GIF", duration=0.05, loop=0)
 
 
 # main
