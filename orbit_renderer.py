@@ -64,8 +64,8 @@ def render_gif(load_path):
         # print(pose)
         cur_cam = MiniCam(
             pose,
-            512,
-            512,
+            128,
+            128,
             np.deg2rad(fovy),
             np.deg2rad(fovy),
             0.01,
@@ -77,15 +77,15 @@ def render_gif(load_path):
         img = img.detach().permute(1, 2, 0).cpu().numpy()
         img = (img * 255).astype(np.uint8)
         imgs.append(img)
-    # use imageio to create gif
+    # use imageio to create gif loop
     import imageio
 
-    imageio.mimsave("renders/orbit.gif", imgs, fps=30)
+    imageio.mimsave("renders/orbit.gif", imgs, "GIF", duration=0.05, loop=0)
 
 
 # main
 if __name__ == "__main__":
-    load_path = "logs\saved_models\darthvader_3_model.ply"
+    load_path = f"logs/big_darth_vader/big_darth_vader_model.ply"
     render_orbit_imgs(load_path)
     grid_image = image_utils.resize_and_fit_images("renders", "renders/gird.png")
     render_gif(load_path)

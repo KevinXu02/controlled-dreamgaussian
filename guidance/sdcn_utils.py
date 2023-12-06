@@ -51,13 +51,13 @@ MODEL_CARDS = {
 
 class ControlNet(nn.Module):
     def __init__(
-            self,
-            device,
-            fp16=True,
-            vram_O=False,
-            t_range=[0.02, 0.98],
-            load_from_local=False,
-            local_path="pretrained_models/v1-5-pruned-emaonly.ckpt",
+        self,
+        device,
+        fp16=True,
+        vram_O=False,
+        t_range=[0.02, 0.98],
+        load_from_local=False,
+        local_path="pretrained_models/v1-5-pruned-emaonly.ckpt",
     ):
         super().__init__()
 
@@ -343,24 +343,24 @@ class ControlNet(nn.Module):
     #     return loss
 
     def train_step(
-            self,
-            pred_rgb,
-            step_ratio=None,
-            guidance_scale=7.5,
-            as_latent=False,
-            vers=None,
-            hors=None,
-            cond_img=None,
-            debug=False,
+        self,
+        pred_rgb,
+        step_ratio=None,
+        guidance_scale=7.5,
+        as_latent=False,
+        vers=None,
+        hors=None,
+        cond_img=None,
+        debug=False,
     ):
         batch_size = pred_rgb.shape[0]
         pred_rgb = pred_rgb.to(self.dtype)
 
         if as_latent:
             latents = (
-                    F.interpolate(pred_rgb, (64, 64), mode="bilinear", align_corners=False)
-                    * 2
-                    - 1
+                F.interpolate(pred_rgb, (64, 64), mode="bilinear", align_corners=False)
+                * 2
+                - 1
             )
         else:
             # interp to 512x512 to be fed into vae.
@@ -453,7 +453,7 @@ class ControlNet(nn.Module):
             # perform guidance (high scale from paper!)
             noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2)
             noise_pred = noise_pred_uncond + guidance_scale * (
-                    noise_pred_cond - noise_pred_uncond
+                noise_pred_cond - noise_pred_uncond
             )
 
             grad = w * (noise_pred - noise)
@@ -462,26 +462,38 @@ class ControlNet(nn.Module):
             # seems important to avoid NaN...
             # grad = grad.clamp(-1, 1)
 
+        # vae decode noise_pred
+        # noise_img = self.decode_latents(noise_pred - noise)
+
+        # # store noise_img
+        # noise_img = (
+        #     noise_img[0].detach().cpu().permute(1, 2, 0).numpy().reshape(512, 512, 3)
+        # )
+        # noise_img = (noise_img * 255).round().astype("uint8")
+        # noise_img = Image.fromarray(noise_img)
+        # noise_img.save(f"renders/noise.png")
+        # raise ValueError("stop here")
+
         target = (latents - grad).detach()
         loss = (
-                0.5
-                * F.mse_loss(latents.float(), target, reduction="sum")
-                / latents.shape[0]
+            0.5
+            * F.mse_loss(latents.float(), target, reduction="sum")
+            / latents.shape[0]
         )
 
         return loss
 
     @torch.no_grad()
     def prepare_latents(
-            self,
-            batch_size,
-            num_channels_latents,
-            height,
-            width,
-            dtype,
-            device,
-            generator,
-            latents=None,
+        self,
+        batch_size,
+        num_channels_latents,
+        height,
+        width,
+        dtype,
+        device,
+        generator,
+        latents=None,
     ):
         shape = (
             batch_size,
@@ -507,16 +519,16 @@ class ControlNet(nn.Module):
         return latents
 
     def prepare_image(
-            self,
-            image,
-            width,
-            height,
-            batch_size,
-            num_images_per_prompt,
-            device,
-            dtype,
-            do_classifier_free_guidance=True,
-            guess_mode=False,
+        self,
+        image,
+        width,
+        height,
+        batch_size,
+        num_images_per_prompt,
+        device,
+        dtype,
+        do_classifier_free_guidance=True,
+        guess_mode=False,
     ):
         image = self.control_image_processor.preprocess(
             image, height=height, width=width
@@ -540,13 +552,13 @@ class ControlNet(nn.Module):
 
     @torch.no_grad()
     def produce_latents(
-            self,
-            height=512,
-            width=512,
-            num_inference_steps=50,
-            guidance_scale=7.5,
-            cond_img=None,
-            latents=None,
+        self,
+        height=512,
+        width=512,
+        num_inference_steps=50,
+        guidance_scale=7.5,
+        cond_img=None,
+        latents=None,
     ):
         if latents is None:
             latents = torch.randn(
@@ -599,7 +611,7 @@ class ControlNet(nn.Module):
             # perform guidance
             noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2)
             noise_pred = noise_pred_uncond + guidance_scale * (
-                    noise_pred_cond - noise_pred_uncond
+                noise_pred_cond - noise_pred_uncond
             )
 
             # compute the previous noisy sample x_t -> x_t-1
@@ -628,15 +640,15 @@ class ControlNet(nn.Module):
 
     @torch.no_grad()
     def prompt_to_img(
-            self,
-            prompts,
-            negative_prompts="",
-            height=512,
-            width=512,
-            num_inference_steps=50,
-            guidance_scale=7.5,
-            latents=None,
-            cond_img=None,
+        self,
+        prompts,
+        negative_prompts="",
+        height=512,
+        width=512,
+        num_inference_steps=50,
+        guidance_scale=7.5,
+        latents=None,
+        cond_img=None,
     ):
         if isinstance(prompts, str):
             prompts = [prompts]
@@ -680,29 +692,40 @@ class ControlNet(nn.Module):
 
 
 class ControlNetDepth(ControlNet):
-    def __init__(self, device, fp16=True, vram_O=False, t_range=[0.02, 0.98], load_from_local=False,
-                 local_path="pretrained_models/v1-5-pruned-emaonly.ckpt"):
+    def __init__(
+        self,
+        device,
+        fp16=True,
+        vram_O=False,
+        t_range=[0.02, 0.98],
+        load_from_local=False,
+        local_path="pretrained_models/v1-5-pruned-emaonly.ckpt",
+    ):
         super().__init__(device, fp16, vram_O, t_range, load_from_local, local_path)
         self.controlnet_depth = ControlNetModel.from_pretrained(
             MODEL_CARDS["depth"], torch_dtype=torch.float16 if fp16 else torch.float32
         ).to(device)
 
     def train_step_depth(
-            self,
-            pred_rgb,
-            step_ratio=None,
-            guidance_scale=7.5,
-            as_latent=False,
-            vers=None,
-            hors=None,
-            cond_img=None,
-            debug=False,
+        self,
+        pred_rgb,
+        step_ratio=None,
+        guidance_scale=7.5,
+        as_latent=False,
+        vers=None,
+        hors=None,
+        cond_img=None,
+        debug=False,
     ):
         batch_size = pred_rgb.shape[0]
         pred_rgb = pred_rgb.to(self.dtype)
 
         if as_latent:
-            latents = (F.interpolate(pred_rgb, (64, 64), mode="bilinear", align_corners=False) * 2 - 1)
+            latents = (
+                F.interpolate(pred_rgb, (64, 64), mode="bilinear", align_corners=False)
+                * 2
+                - 1
+            )
         else:
             # interp to 512x512 to be fed into vae.
             pred_rgb_512 = F.interpolate(
@@ -794,7 +817,7 @@ class ControlNetDepth(ControlNet):
             # perform guidance (high scale from paper!)
             noise_pred_cond, noise_pred_uncond = noise_pred.chunk(2)
             noise_pred = noise_pred_uncond + guidance_scale * (
-                    noise_pred_cond - noise_pred_uncond
+                noise_pred_cond - noise_pred_uncond
             )
 
             grad = w * (noise_pred - noise)
@@ -805,9 +828,9 @@ class ControlNetDepth(ControlNet):
 
         target = (latents - grad).detach()
         loss = (
-                0.5
-                * F.mse_loss(latents.float(), target, reduction="sum")
-                / latents.shape[0]
+            0.5
+            * F.mse_loss(latents.float(), target, reduction="sum")
+            / latents.shape[0]
         )
 
         return loss
