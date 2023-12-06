@@ -76,8 +76,7 @@ class Trainer:
 
         # logging
         if opt.wandb:
-            wandb.init(project="DreamGaussian", config=opt)
-            wandb.watch(self.renderer.gaussians, log="all")
+            wandb.init(project="ControlledDreamGaussian")
 
         # load input data from cmdline
         if self.opt.input is not None:
@@ -423,7 +422,7 @@ class Trainer:
                         hors=hors,
                         debug=self.opt.debug,
                     )
-                    loss = self.opt.lambda_sd *depth_loss
+                    loss = self.opt.lambda_sd * depth_loss
                 elif self.opt.mvdream:
                     loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
                         images, poses, step_ratio
