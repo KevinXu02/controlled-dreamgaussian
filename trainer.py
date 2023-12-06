@@ -413,15 +413,7 @@ class Trainer:
                         from matplotlib import pyplot as plt
 
                         plt.imshow(openpose_image)
-                    openpose_loss = self.guidance_sd.train_step(
-                        pred_rgb=images,
-                        cond_img=openpose_image,
-                        step_ratio=step_ratio,
-                        guidance_scale=self.opt.guidance_scale,
-                        as_latent=False,
-                        hors=hors,
-                        debug=self.opt.debug,
-                    )
+
                     depth_loss = self.guidance_sd.train_step_depth(
                         pred_rgb=images,
                         cond_img=depth_image,
@@ -431,7 +423,7 @@ class Trainer:
                         hors=hors,
                         debug=self.opt.debug,
                     )
-                    loss = self.opt.lambda_sd * (openpose_loss + depth_loss) / 2
+                    loss = self.opt.lambda_sd *depth_loss
                 elif self.opt.mvdream:
                     loss = loss + self.opt.lambda_sd * self.guidance_sd.train_step(
                         images, poses, step_ratio
