@@ -1,4 +1,5 @@
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 
 from gs_renderer import MiniCam
@@ -282,12 +283,12 @@ class OpenposeRenderer:
         K[0, 2] = 512 / 2
         K[1, 2] = 512 / 2
         K[2, 2] = 1
-        camera = pyrender.IntrinsicsCamera(fx=K[0, 0], fy=K[1, 1], cx=K[0, 2], cy=K[1, 2], znear=0.01, zfar=1000.0)
+        camera = pyrender.IntrinsicsCamera(fx=K[0, 0], fy=K[1, 1], cx=K[0, 2], cy=K[1, 2], znear=0.01, zfar=10000.0)
         self.scene = scene
         self.camera = camera
         print("Only suppot fovy=49.1 now")
 
-    def render(self, pose, cam, hor):
+    def render(self, pose, cam, hor, need_depth=True):
         w2c = np.linalg.inv(pose)
         w2c[1:3, :3] *= -1
         w2c[:3, 3] *= -1
@@ -306,15 +307,19 @@ class OpenposeRenderer:
             is_back=is_back,
         )
         openpose_image = Image.fromarray(openpose_image)
-
+        if not need_depth:
+            return openpose_image
         self.scene.add(self.camera, pose=pose)
         r = pyrender.OffscreenRenderer(512, 512, point_size=2)
         _, depth = r.render(self.scene)
-        depth = depth / np.max(depth) * 255
-        depth = 255 - depth
-        depth[depth == 255] = 0
+        depth = depth / np.max(depth)
+        depth[depth > 0] = 1 - depth[depth > 0]
+        depth = depth / np.max(depth)
+
+        depth = depth * 255
+        depth = depth.astype(np.uint8)
         # gray to rgb
-        depth = cv2.cvtColor(depth.astype(np.uint8), cv2.COLOR_GRAY2RGB)
+        depth = cv2.cvtColor(depth, cv2.COLOR_GRAY2RGB)
 
         depth = Image.fromarray(depth.astype(np.uint8))
 
