@@ -68,8 +68,11 @@ class Trainer:
         self.train_steps = 1  # steps per rendering loop
 
         # t pose keypoints
-        self.T_pose_keypoints = T_pose_keypoints[opt.pose_name]
-        self.T_pose_keypoints = mid_and_scale(self.T_pose_keypoints)
+        if opt.pose_name:
+            self.T_pose_keypoints = T_pose_keypoints[opt.pose_name]
+            self.T_pose_keypoints = mid_and_scale(self.T_pose_keypoints)
+        else:
+            self.T_pose_keypoints = None
 
         # logging
         if opt.wandb:
@@ -187,7 +190,7 @@ class Trainer:
 
         # sdcn and sdcn_depth should not be enabled at the same time
         assert not (
-                self.opt.sdcn and self.opt.sdcn_depth
+            self.opt.sdcn and self.opt.sdcn_depth
         ), "sdcn and sdcn_depth should not be enabled at the same time"
 
         # prepare openpose render
@@ -195,7 +198,7 @@ class Trainer:
             self.openpose_renderer = OpenposeRenderer(
                 keypoints_path=self.opt.keypoints_path,
                 mesh_path=self.opt.mesh_path,
-                keypoints=None,
+                keypoints=self.T_pose_keypoints,
                 need_depth=self.opt.sdcn_depth,
             )
 
@@ -246,7 +249,7 @@ class Trainer:
             poses = []
             vers, hors, radii = [], [], []
             # avoid too large elevation (> 80 or < -80), and make sure it always cover [-30, 30]
-            min_ver = max(min(-30, -30 - self.opt.elevation), -75 - self.opt.elevation)
+            min_ver = max(min(-30, -30 - self.opt.elevation), -60 - self.opt.elevation)
             max_ver = min(max(30, 30 - self.opt.elevation), 45 - self.opt.elevation)
 
             for _ in range(self.opt.batch_size):
@@ -449,8 +452,8 @@ class Trainer:
 
             # densify and prune
             if (
-                    self.step >= self.opt.density_start_iter
-                    and self.step <= self.opt.density_end_iter
+                self.step >= self.opt.density_start_iter
+                and self.step <= self.opt.density_end_iter
             ):
                 viewspace_point_tensor, visibility_filter, radii = (
                     out["viewspace_points"].to(self.device),
