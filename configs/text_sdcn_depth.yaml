@@ -2,7 +2,7 @@
 # input rgba image path (default to None, can be load in GUI too)
 input:
 # input text prompt (default to None, can be input in GUI too)
-prompt: photo a DarthVader, whole body, empty hand
+prompt: photo a Darth Vader, whole body, empty hand
 # input mesh for stage 2 (auto-search from stage 1 output path if None)
 mesh:
 # estimated elevation angle for input image
@@ -12,7 +12,7 @@ ref_size: 256
 # density thresh for mesh extraction
 density_thresh: 1
 
-pose_name: one_hand_forward
+pose_name: 
 # 3d keypoints path for sdcn_depth, pkl file
 keypoints_path: frankmocap/output/openpose.pkl
 # 3d mesh path for sdcn_depth, obj file
