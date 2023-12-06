@@ -2,7 +2,7 @@
 # input rgba image path (default to None, can be load in GUI too)
 input:
 # input text prompt (default to None, can be input in GUI too)
-prompt: Darth Vader, full body, 3d asset
+prompt: mark 42, iron man, full body, masterpiece,
 # input mesh for stage 2 (auto-search from stage 1 output path if None)
 mesh:
 # estimated elevation angle for input image
@@ -12,7 +12,14 @@ ref_size: 256
 # density thresh for mesh extraction
 density_thresh: 1
 
-pose_name: running
+pose_name:
+#if you want to use the 3d keypoints and mesh from frankmocap, please set the path here
+#leave pose_name empty
+# 3d keypoints path for sdcn_depth, pkl file
+keypoints_path: frankmocap/output/0997/openpose.pkl
+# 3d mesh path for sdcn_depth, obj file
+mesh_path: frankmocap/output/0997/mesh.obj
+frankmocap_path: frankmocap/output/0997
 
 ### Output
 outdir: logs
@@ -22,7 +29,7 @@ save_interval: 500
 
 #stable diffution
 load_from_local: True
-local_path: pretrained_models\DarthVader.ckpt
+local_path: pretrained_models\mark42.ckpt
 
 ### Training
 # guidance loss weights (0 to disable)
@@ -38,7 +45,7 @@ iters: 5500
 # training iterations for stage 2
 iters_refine: 50
 # training camera radius
-radius: 2.5
+radius: 2.8
 # training camera fovy
 fovy: 49.1
 # checkpoint to load for stage 1 (should be a ply file)
@@ -72,8 +79,8 @@ rotation_lr: 0.003
 percent_dense: 0.01
 density_start_iter: 0
 density_end_iter: 3500
-densification_interval: 500
-opacity_reset_interval: 1500
+densification_interval: 350
+opacity_reset_interval: 15000
 densify_grad_threshold: 0.01
 
 min_opacity: 0.01
