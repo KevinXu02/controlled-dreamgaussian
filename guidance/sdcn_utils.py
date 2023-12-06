@@ -36,8 +36,8 @@ def seed_everything(seed):
 
 
 MODEL_CARDS = {
-    "pose": "lllyasviel/sd-controlnet-openpose",
-    "depth": "lllyasviel/sd-controlnet-depth",
+    "pose": "lllyasviel/control_v11p_sd15_openpose",
+    "depth": "lllyasviel/control_v11f1p_sd15_depth",
     "canny": "lllyasviel/sd-controlnet-canny",
     "seg": "lllyasviel/sd-controlnet-seg",
     "normal": "lllyasviel/sd-controlnet-normal",
@@ -105,7 +105,9 @@ class ControlNet(nn.Module):
                 "runwayml/stable-diffusion-v1-5",
                 torch_dtype=torch.float16 if fp16 else torch.float32,
             )
-
+        # if is_xformers_available():
+        #     print("[INFO] enable xformers memory efficient attention")
+        #     pipe.enable_xformers_memory_efficient_attention()
         if vram_O:
             pipe.enable_sequential_cpu_offload()
             pipe.enable_vae_slicing()
@@ -795,8 +797,8 @@ class ControlNetDepth(ControlNet):
                 device=self.device,
                 dtype=self.dtype,
             )
-
-            down_block_res_samples, mid_block_res_sample = self.controlnet_depth(
+            # opnepose
+            down_block_res_samples_op, mid_block_res_sample_op = self.controlnet(
                 latent_model_input,
                 t,
                 encoder_hidden_states=embeddings,
@@ -805,6 +807,26 @@ class ControlNetDepth(ControlNet):
                 guess_mode=False,
                 return_dict=False,
             )
+
+            # depth
+            (
+                down_block_res_samples_dep,
+                mid_block_res_sample_dep,
+            ) = self.controlnet_depth(
+                latent_model_input,
+                t,
+                encoder_hidden_states=embeddings,
+                controlnet_cond=controlnet_cond,
+                conditioning_scale=0.1,
+                guess_mode=False,
+                return_dict=False,
+            )
+
+            # sum
+            down_block_res_samples = (
+                down_block_res_samples_op + down_block_res_samples_dep
+            )
+            mid_block_res_sample = mid_block_res_sample_op + mid_block_res_sample_dep
 
             noise_pred = self.unet(
                 latent_model_input,
