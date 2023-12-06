@@ -187,14 +187,16 @@ class Trainer:
 
         # sdcn and sdcn_depth should not be enabled at the same time
         assert not (
-            self.opt.sdcn and self.opt.sdcn_depth
+                self.opt.sdcn and self.opt.sdcn_depth
         ), "sdcn and sdcn_depth should not be enabled at the same time"
 
         # prepare openpose render
-        if self.opt.sdcn_depth:
+        if self.opt.sdcn_depth or self.opt.sdcn:
             self.openpose_renderer = OpenposeRenderer(
                 keypoints_path=self.opt.keypoints_path,
                 mesh_path=self.opt.mesh_path,
+                keypoints=None,
+                need_depth=self.opt.sdcn_depth,
             )
 
     def train_step(self):
@@ -356,13 +358,11 @@ class Trainer:
                         self.cam.far,
                     )
 
-                    openpose_image = render_openpose(
+                    openpose_image = self.openpose_renderer.render(
                         pose=pose,
                         cam=cur_cam,
                         hor=hor,
-                        T_pose_keypoints=self.T_pose_keypoints,
                     )
-
                     if self.opt.debug:
                         import kiui
 
@@ -449,8 +449,8 @@ class Trainer:
 
             # densify and prune
             if (
-                self.step >= self.opt.density_start_iter
-                and self.step <= self.opt.density_end_iter
+                    self.step >= self.opt.density_start_iter
+                    and self.step <= self.opt.density_end_iter
             ):
                 viewspace_point_tensor, visibility_filter, radii = (
                     out["viewspace_points"].to(self.device),
@@ -539,6 +539,7 @@ class Trainer:
                 # save ply per 500 iters
                 if iter % self.opt.save_interval == 0 and iter != 0:
                     self.save_model(iter=iter, mode="ckpt")
+                    self.save_model(iter=iter, mode="ply")
 
             # do a last prune
             self.renderer.gaussians.prune(min_opacity=0.01, extent=1, max_screen_size=0)

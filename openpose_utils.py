@@ -268,9 +268,15 @@ def mid_and_scale(keypoints):
 
 class OpenposeRenderer:
 
-    def __init__(self, keypoints_path, mesh_path):
-
-        self.keypoints = pickle.load(open(keypoints_path, 'rb'))
+    def __init__(self, keypoints_path, mesh_path, keypoints=None, need_depth=False):
+        if keypoints is not None:
+            self.keypoints = keypoints
+            print("Using given keypoints!")
+        else:
+            self.keypoints = pickle.load(open(keypoints_path, 'rb'))
+        self.need_depth = need_depth
+        if not self.need_depth:
+            return
         mesh = trimesh.load(mesh_path)
         mesh = pyrender.Mesh.from_trimesh(mesh)
         scene = pyrender.Scene()
@@ -288,7 +294,7 @@ class OpenposeRenderer:
         self.camera = camera
         print("Only suppot fovy=49.1 now")
 
-    def render(self, pose, cam, hor, need_depth=True):
+    def render(self, pose, cam, hor, ):
         w2c = np.linalg.inv(pose)
         w2c[1:3, :3] *= -1
         w2c[:3, 3] *= -1
@@ -307,7 +313,7 @@ class OpenposeRenderer:
             is_back=is_back,
         )
         openpose_image = Image.fromarray(openpose_image)
-        if not need_depth:
+        if not self.need_depth:
             return openpose_image
         self.scene.add(self.camera, pose=pose)
         r = pyrender.OffscreenRenderer(512, 512, point_size=2)
