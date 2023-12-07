@@ -476,15 +476,15 @@ class Trainer:
                 if self.step % self.opt.opacity_reset_interval == 0:
                     self.renderer.gaussians.reset_opacity()
 
-        if self.step >= self.opt.density_end_iter:
-            # prune every 1000 iters
-            if self.step % 500 == 0:
-                # min_opacity, extent, max_screen_size
-                self.renderer.gaussians.prune(
-                    min_opacity=self.opt.min_opacity,
-                    extent=0.5,
-                    max_screen_size=0,
-                )
+        # if self.step >= self.opt.density_end_iter:
+        #     # prune every 1000 iters
+        #     if self.step % 500 == 0:
+        #         # min_opacity, extent, max_screen_size
+        #         self.renderer.gaussians.prune(
+        #             min_opacity=self.opt.min_opacity,
+        #             extent=0.5,
+        #             max_screen_size=0,
+        #         )
 
         ender.record()
         torch.cuda.synchronize()
