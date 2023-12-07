@@ -42,7 +42,7 @@ iters: 7000
 # training iterations for stage 2
 iters_refine: 50
 # training camera radius
-radius: 3.1
+radius: 3
 # training camera fovy
 fovy: 49.1
 # checkpoint to load for stage 1 (should be a ply file)

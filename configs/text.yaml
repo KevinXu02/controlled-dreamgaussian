@@ -2,7 +2,7 @@
 # input rgba image path (default to None, can be load in GUI too)
 input:
 # input text prompt (default to None, can be input in GUI too)
-prompt:
+prompt: mark 42, iron man, full body, masterpiece,
 # input mesh for stage 2 (auto-search from stage 1 output path if None)
 mesh:
 # estimated elevation angle for input image
@@ -22,6 +22,8 @@ save_interval: 500
 load_from_local: False
 local_path: pretrained_models\v1-5-pruned-emaonly.ckpt
 
+pose_name:
+
 ### Training
 # guidance loss weights (0 to disable)
 lambda_sd: 1
@@ -36,7 +38,7 @@ iters: 5500
 # training iterations for stage 2
 iters_refine: 50
 # training camera radius
-radius: 2.5
+radius: 2.8
 # training camera fovy
 fovy: 49.1
 # checkpoint to load for stage 1 (should be a ply file)
@@ -67,8 +69,8 @@ rotation_lr: 0.005
 percent_dense: 0.01
 density_start_iter: 0
 density_end_iter: 3500
-densification_interval: 500
-opacity_reset_interval: 50000000
+densification_interval: 350
+opacity_reset_interval: 1600
 densify_grad_threshold: 0.01
 
 min_opacity: 0.01
@@ -78,4 +80,4 @@ max_screen_size: 0.5
 #open this for large iters(>3000)
 dynamic_radius: False
 ### Logging
-wandb: False
+wandb: True

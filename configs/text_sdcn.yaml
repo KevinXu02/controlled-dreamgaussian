@@ -2,7 +2,7 @@
 # input rgba image path (default to None, can be load in GUI too)
 input:
 # input text prompt (default to None, can be input in GUI too)
-prompt: mark 42, iron man, full body, masterpiece,
+prompt: full body, mark 42, iron man, masterpiece,
 # input mesh for stage 2 (auto-search from stage 1 output path if None)
 mesh:
 # estimated elevation angle for input image
@@ -16,10 +16,9 @@ pose_name:
 #if you want to use the 3d keypoints and mesh from frankmocap, please set the path here
 #leave pose_name empty
 # 3d keypoints path for sdcn_depth, pkl file
-keypoints_path: frankmocap/output/0997/openpose.pkl
+keypoints_path: frankmocap/output/1004/openpose.pkl
 # 3d mesh path for sdcn_depth, obj file
-mesh_path: frankmocap/output/0997/mesh.obj
-frankmocap_path: frankmocap/output/0997
+mesh_path: frankmocap/output/1004/mesh.obj
 
 ### Output
 outdir: logs
@@ -45,7 +44,7 @@ iters: 5500
 # training iterations for stage 2
 iters_refine: 50
 # training camera radius
-radius: 2.8
+radius: 3
 # training camera fovy
 fovy: 49.1
 # checkpoint to load for stage 1 (should be a ply file)
@@ -71,7 +70,7 @@ sh_degree: 0
 position_lr_init: 0.005
 position_lr_final: 0.00002
 position_lr_delay_mult: 0.02
-position_lr_max_steps: 500
+position_lr_max_steps: 3500
 feature_lr: 0.005
 opacity_lr: 0.003
 scaling_lr: 0.003
@@ -80,11 +79,11 @@ percent_dense: 0.01
 density_start_iter: 0
 density_end_iter: 3500
 densification_interval: 350
-opacity_reset_interval: 15000
+opacity_reset_interval: 701
 densify_grad_threshold: 0.01
 
-min_opacity: 0.01
-extent: 2.5
+min_opacity: 0.05
+extent: 2
 max_screen_size: 0.5
 
 #open this when the character gets out of the screen
