@@ -2,7 +2,7 @@
 # input rgba image path (default to None, can be load in GUI too)
 input:
 # input text prompt (default to None, can be input in GUI too)
-prompt: photo a Darth Vader, whole body, empty hand
+prompt: "mark 42,iron man,masterpiece,full body,"
 # input mesh for stage 2 (auto-search from stage 1 output path if None)
 mesh:
 # estimated elevation angle for input image
@@ -12,21 +12,21 @@ ref_size: 256
 # density thresh for mesh extraction
 density_thresh: 1
 
-pose_name: 
+pose_name:
 # 3d keypoints path for sdcn_depth, pkl file
-keypoints_path: frankmocap/output/openpose.pkl
+keypoints_path: frankmocap/output/0996/openpose.pkl
 # 3d mesh path for sdcn_depth, obj file
-mesh_path: frankmocap/output/mesh.obj
+mesh_path: frankmocap/output/0996/mesh.obj
 
 ### Output
 outdir: logs
 mesh_format: obj
-save_path: DarthVader
+save_path: mark42_cross
 save_interval: 500
 
 #stable diffution
-load_from_local: False
-local_path: pretrained_models\DarthVader.ckpt
+load_from_local: True
+local_path: ./pretrained_models/mark42.ckpt
 
 ### Training
 # guidance loss weights (0 to disable)
@@ -42,7 +42,7 @@ iters: 5500
 # training iterations for stage 2
 iters_refine: 50
 # training camera radius
-radius: 2.5
+radius: 3
 # training camera fovy
 fovy: 49.1
 # checkpoint to load for stage 1 (should be a ply file)
@@ -76,8 +76,8 @@ rotation_lr: 0.003
 percent_dense: 0.01
 density_start_iter: 0
 density_end_iter: 3500
-densification_interval: 500
-opacity_reset_interval: 1500
+densification_interval: 350
+opacity_reset_interval: 701
 densify_grad_threshold: 0.01
 
 min_opacity: 0.01
@@ -86,7 +86,7 @@ max_screen_size: 0.5
 
 #open this when the character gets out of the screen
 dynamic_radius: False
-### Logging
+### Loggingz
 wandb: False
 ### Misc
 debug: False
