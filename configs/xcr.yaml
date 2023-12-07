@@ -2,7 +2,7 @@
 # input rgba image path (default to None, can be load in GUI too)
 input:
 # input text prompt (default to None, can be input in GUI too)
-prompt: "Darth Vader, full body, 3d asset, without cloak,"
+prompt: "Iron man, full body, 3d asset, without cloak, ultra 4k, {{masterpiece}},"
 # input mesh for stage 2 (auto-search from stage 1 output path if None)
 mesh:
 # estimated elevation angle for input image
@@ -14,9 +14,9 @@ density_thresh: 1
 
 pose_name:
 # 3d keypoints path for sdcn_depth, pkl file
-keypoints_path: frankmocap/output/0999/openpose.pkl
+keypoints_path: frankmocap/output/0996/openpose.pkl
 # 3d mesh path for sdcn_depth, obj file
-mesh_path: frankmocap/output/0999/mesh.obj
+mesh_path: frankmocap/output/0996/mesh.obj
 
 ### Output
 outdir: logs
@@ -26,7 +26,7 @@ save_interval: 500
 
 #stable diffution
 load_from_local: True
-local_path: ./pretrained_models/DarthVader.ckpt
+local_path: ./pretrained_models/mark42.ckpt
 
 ### Training
 # guidance loss weights (0 to disable)
@@ -87,6 +87,6 @@ max_screen_size: 0.5
 #open this when the character gets out of the screen
 dynamic_radius: False
 ### Loggingz
-wandb: True
+wandb: False
 ### Misc
 debug: False

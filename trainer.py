@@ -3,7 +3,7 @@ import cv2
 import time
 import tqdm
 import numpy as np
-import dearpygui.dearpygui as dpg
+# import dearpygui.dearpygui as dpg
 
 import torch
 import torch.nn.functional as F
@@ -17,6 +17,8 @@ from grid_put import mipmap_linear_grid_put_2d
 import wandb
 from openpose_utils import *
 from configs.t_pose_keypoints import T_pose_keypoints
+
+USE_CUDA_ID = int(input("Enter CUDA ID: "))
 
 
 class Trainer:
@@ -36,7 +38,7 @@ class Trainer:
         self.need_update = True  # update buffer_image
 
         # models
-        self.device = torch.device("cuda")
+        self.device = torch.device(f"cuda:{USE_CUDA_ID}")
         self.bg_remover = None
 
         self.guidance_sd = None
