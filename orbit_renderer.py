@@ -65,8 +65,8 @@ def render_gif(load_path):
         # print(pose)
         cur_cam = MiniCam(
             pose,
-            128,
-            128,
+            512,
+            512,
             np.deg2rad(fovy),
             np.deg2rad(fovy),
             0.01,
@@ -79,19 +79,20 @@ def render_gif(load_path):
         img = (img * 255).astype(np.uint8)
         imgs.append(img)
         depth_img = out["depth"].unsqueeze(0)[0]
-        depth_img = depth_img.detach().permute(1, 2, 0).cpu().numpy()
-        depth_img = (depth_img * 255).astype(np.uint8)
+
+        depth_img = depth_img.detach().cpu().numpy().reshape(512, 512)
         depth_imgs.append(depth_img)
     # use imageio to create gif loop
     import imageio
 
+    depth_imgs = (depth_imgs / np.max(depth_imgs) * 255).astype(np.uint8)
     imageio.mimsave("renders/orbit.gif", imgs, "GIF", duration=0.05, loop=0)
     imageio.mimsave("renders/orbit_depth.gif", depth_imgs, "GIF", duration=0.05, loop=0)
 
 
 # main
 if __name__ == "__main__":
-    load_path = f"logs/big_mk42/big_mk42_model_3000.ply"
+    load_path = f"logs\mk42_996_depth\mk42_996_depth_model.ply"
     render_orbit_imgs(load_path)
     grid_image = image_utils.resize_and_fit_images("renders", "renders/gird.png")
     render_gif(load_path)
