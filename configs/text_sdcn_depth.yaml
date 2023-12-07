@@ -2,7 +2,7 @@
 # input rgba image path (default to None, can be load in GUI too)
 input:
 # input text prompt (default to None, can be input in GUI too)
-prompt: "Darth Vader, full body, 3d asset, without cloak,"
+prompt: "full body,mark 42,iron man,masterpiece,ultra 4k"
 # input mesh for stage 2 (auto-search from stage 1 output path if None)
 mesh:
 # estimated elevation angle for input image
@@ -12,21 +12,21 @@ ref_size: 256
 # density thresh for mesh extraction
 density_thresh: 1
 
-pose_name:
+pose_name: 
 # 3d keypoints path for sdcn_depth, pkl file
-keypoints_path: frankmocap/output/0999/openpose.pkl
+keypoints_path: frankmocap/output/0996/openpose.pkl
 # 3d mesh path for sdcn_depth, obj file
-mesh_path: frankmocap/output/0999/mesh.obj
+mesh_path: frankmocap/output/0996/mesh.obj
 
 ### Output
 outdir: logs
 mesh_format: obj
-save_path: darthvader_999
+save_path: mark42_cross
 save_interval: 500
 
 #stable diffution
 load_from_local: True
-local_path: ./pretrained_models/DarthVader.ckpt
+local_path: ./pretrained_models/mark42.ckpt
 
 ### Training
 # guidance loss weights (0 to disable)
@@ -38,11 +38,11 @@ lambda_zero123: 0
 # training batch size per iter
 batch_size: 1
 # training iterations for stage 1
-iters: 7000
+iters: 5500
 # training iterations for stage 2
-iters_refine: 50
+iters_refine: 500
 # training camera radius
-radius: 3
+radius: 3.1
 # training camera fovy
 fovy: 49.1
 # checkpoint to load for stage 1 (should be a ply file)
@@ -65,8 +65,8 @@ guidance_scale: 7.5
 ### Gaussian splatting
 num_pts: 5000
 sh_degree: 0
-position_lr_init: 0.005
-position_lr_final: 0.00002
+position_lr_init: 0.003
+position_lr_final: 0.00001
 position_lr_delay_mult: 0.02
 position_lr_max_steps: 1000
 feature_lr: 0.005
@@ -86,7 +86,7 @@ max_screen_size: 0.5
 
 #open this when the character gets out of the screen
 dynamic_radius: False
-### Loggingz
+### Logging
 wandb: False
 ### Misc
 debug: False

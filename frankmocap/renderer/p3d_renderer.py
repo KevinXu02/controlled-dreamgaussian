@@ -20,11 +20,12 @@ from pytorch3d.renderer import (
     MeshRasterizer,  
     SoftPhongShader,
 )
+# from trainer import USE_CUDA_ID
 
 class Pytorch3dRenderer(object):
 
     def __init__(self, img_size, mesh_color):
-        self.device = torch.device("cuda:0")
+        self.device = torch.device(f"cuda")
         # self.render_size = 1920
 
         self.img_size = img_size
