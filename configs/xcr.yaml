@@ -14,14 +14,14 @@ density_thresh: 1
 
 pose_name:
 # 3d keypoints path for sdcn_depth, pkl file
-keypoints_path: frankmocap/output/1004/openpose.pkl
+keypoints_path: frankmocap/output/0999/openpose.pkl
 # 3d mesh path for sdcn_depth, obj file
-mesh_path: frankmocap/output/1004/mesh.obj
+mesh_path: frankmocap/output/0999/mesh.obj
 
 ### Output
 outdir: logs
 mesh_format: obj
-save_path: darthvader_1004
+save_path: darthvader_999
 save_interval: 500
 
 #stable diffution
@@ -38,7 +38,7 @@ lambda_zero123: 0
 # training batch size per iter
 batch_size: 1
 # training iterations for stage 1
-iters: 5500
+iters: 7000
 # training iterations for stage 2
 iters_refine: 50
 # training camera radius
@@ -77,7 +77,7 @@ percent_dense: 0.01
 density_start_iter: 0
 density_end_iter: 3500
 densification_interval: 350
-opacity_reset_interval: 1401
+opacity_reset_interval: 1751
 densify_grad_threshold: 0.01
 
 min_opacity: 0.01
