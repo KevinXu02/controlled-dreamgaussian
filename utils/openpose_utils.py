@@ -2,7 +2,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-from gs_renderer import MiniCam
+from utils.gs_renderer import MiniCam
 from PIL import Image
 
 # for rendering

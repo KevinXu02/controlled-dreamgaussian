@@ -865,9 +865,9 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.dirname(current_dir)
     sys.path.append(parent_dir)
-    from openpose_utils import *
-    from cam_utils import orbit_camera
-    from gs_renderer import MiniCam
+    from utils.openpose_utils import *
+    from utils.cam_utils import orbit_camera
+    from utils.gs_renderer import MiniCam
     import argparse
     import matplotlib.pyplot as plt
 

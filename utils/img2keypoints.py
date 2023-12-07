@@ -133,8 +133,8 @@ if __name__ == '__main__':
     #     out_dir = f'frankmocap/output/{i:04d}'
     #     image2keypoint(img, out_dir)
     # exit()
-    from cam_utils import orbit_camera
-    from openpose_utils import *
+    from utils.cam_utils import orbit_camera
+    from utils.openpose_utils import *
     import cv2
     import numpy as np
 

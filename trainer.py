@@ -10,12 +10,12 @@ import torch.nn.functional as F
 
 import rembg
 
-from cam_utils import orbit_camera, OrbitCamera
-from gs_renderer import Renderer, MiniCam
+from utils.cam_utils import orbit_camera, OrbitCamera
+from utils.gs_renderer import Renderer, MiniCam
 
-from grid_put import mipmap_linear_grid_put_2d
+from utils.grid_put import mipmap_linear_grid_put_2d
 import wandb
-from openpose_utils import *
+from utils.openpose_utils import *
 from configs.t_pose_keypoints import T_pose_keypoints
 
 
