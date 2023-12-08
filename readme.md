@@ -1,6 +1,6 @@
 # ControlledDreamGaussian
 
-This repository contains a unofficial implementation for [DreamGaussian: Generative Gaussian Splatting for Efficient 3D Content Creation](https://arxiv.org/abs/2309.16653). Adding support for loss tracking, OpenPose, SMPL, more render methods and integrates ControlNet into the pipeline. Hyperparameters are also tuned for better results.
+This repository contains a unofficial implementation for [DreamGaussian: Generative Gaussian Splatting for Efficient 3D Content Creation](https://arxiv.org/abs/2309.16653). Adding support for loss tracking, OpenPose, SMPL, more render methods and integrates ControlNet into the pipeline. Hyperparameters are also tuned for better results. Trainer is splitted from visualization.
 
 ## Install
 
@@ -41,13 +41,13 @@ Text-to-3D (With ControlNet OpenPose):
 
 ```bash
 ### training gaussian stage
-python trainer.py --config configs/text_sdcn.yaml prompt="a plush toy of a corgi nurse" save_path=corgi_nurse
+python trainer.py --config configs/text_sdcn.yaml prompt="iron man" save_path=iron_man
 
 ### training from checkpoint
-python trainer.py --config configs/text.yaml prompt="a photo of an icecream" save_path=icecream load={path_to_icecream_model.ckpt}
+python trainer.py --config configs/text_sdcn.yaml prompt="iron man" save_path=iron_man
 
 ### loading and visualize gaussian stage model
-python vis.py --config configs/text_sdcn.yaml load={path_to_corgi_nurse_model}
+python vis.py --config configs/text_sdcn.yaml load={path_to_iron_man_model}
 ```
 
 Please check `./configs/text_sdcn.yaml` for more options. You may use your own pose from https://zhuyu1997.github.io/open-pose-editor/. Just right click and copy the key points into configs\t_pose_keypoints.py. And change the pose name in configs\text_sdcn.yaml.
@@ -57,13 +57,13 @@ THIS REQUIRES PYRENDERER TO BE INSTALLED.
 
 ```bash
 ### training gaussian stage
-python trainer.py --config configs/text_sdcn_depth.yaml prompt="a plush toy of a corgi nurse" save_path=corgi_nurse
+python trainer.py --config configs/text_sdcn_depth.yaml prompt="iron man" save_path=iron_man
 
 ### training from checkpoint
-python trainer.py --config configs/text_sdcn_depth.yaml prompt=a plush toy of a corgi nurse" save_path=corgi_nurse
+python trainer.py --config configs/text_sdcn_depth.yaml prompt="iron man" save_path=iron_man
 
 ### loading and visualize gaussian stage model
-python vis.py --config configs/text_sdcn.yaml load={path_to_corgi_nurse_model}
+python vis.py --config configs/text_sdcn_depth.yaml load={path_to_iron_man_model}
 ```
 
 Please check `./configs/text_sdcn.yaml` for more options. You may use your own pose from https://zhuyu1997.github.io/open-pose-editor/. Just right click and copy the key points into config/text_sdcn.yaml.
