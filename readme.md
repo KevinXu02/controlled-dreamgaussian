@@ -71,17 +71,6 @@ Please check `./configs/text_sdcn.yaml` for more options. You may use your own p
 ## Loading LoRA models
 As diffuser doesn't support loading LoRA models to the text encoder, we have to merge the base SD model with the LoRA model in the A1111WebUI. https://github.com/AUTOMATIC1111/stable-diffusion-webui. And you can load the merged model by modifying the config file.
 
-Helper scripts:
-    
-    ```bash
-    # visualize the gaussian splatting results
-    see orbit_renderer.py
-    
-    ```
-
-    ```bash
-```
-
 ## Acknowledgement
 
 This work is built on many amazing research works and open-source projects, thanks a lot to all the authors for sharing!
